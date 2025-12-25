@@ -1,0 +1,44 @@
+{
+    "version": "0.2",
+    "language": "en",
+    "words": [
+        "ksana",
+        "dmitriy",
+        "linev",
+        "iracing",
+        "assetto",
+        "corsa",
+        "competizione",
+        "assettocorsa",
+        "simracing",
+        "recrocks",
+        "badmagic",
+        "raceroom",
+        // sim sdk internals
+        "bufs",
+        "acpmf",
+        "irsdk",
+        "memmapfilename",
+        "pyirsdk",
+        // racing-related stuff
+        "rpms",
+        "kers",
+        // sim ids
+        "acsa",
+        "irac",
+        // rust-related
+        "bitfield",
+        "byteorder",
+        "chrono",
+        "flate",
+        "repr",
+        "thiserror",
+        "nonoverlapping",
+        // windows corner
+        "readwrite",
+        "pcstr",
+    ],
+    "ignorePaths": [
+        "target"
+    ]
+}
