@@ -63,6 +63,7 @@ impl SharedMemoryReader {
 
         Ok(Self {
             handle,
+            #[allow(clippy::unwrap_used)]  // safe because we checked for null above
             view: NonNull::new(view.Value as *mut u8).unwrap(),
             size,
         })
@@ -131,6 +132,7 @@ impl SharedMemoryWriter {
 
         Ok(Self {
             handle,
+            #[allow(clippy::unwrap_used)]  // safe because we checked for null above
             view: NonNull::new(view.Value as *mut u8).unwrap(),
             size,
         })

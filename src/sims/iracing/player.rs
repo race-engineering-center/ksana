@@ -77,6 +77,7 @@ impl Player for IRacingPlayer {
             if frame.session_info.is_some() {
                 shm.write(
                     frame.header.session_info_offset as usize,
+                    #[allow(clippy::unwrap_used)] // safe because we checked for none above
                     frame.session_info.as_ref().unwrap().as_bytes(),
                 );
             }

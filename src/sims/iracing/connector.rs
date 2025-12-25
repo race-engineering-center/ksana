@@ -2,7 +2,7 @@ use super::data::{FrameData, Header, IRSDK_MEMMAPFILENAME, VarHeader};
 use crate::Connector;
 use crate::shm::SharedMemoryReader;
 
-const DEFAULT_SHM_SIZE: usize = 1024 * 1024 * 1024;
+const DEFAULT_SHM_SIZE: usize = 1024 * 1024 * 32;
 
 pub struct IRacingConnector {
     shm: Option<SharedMemoryReader>,
