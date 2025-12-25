@@ -24,6 +24,7 @@
         // racing-related stuff
         "rpms",
         "kers",
+        "datavalideventname",
         // sim ids
         "acsa",
         "irac",
