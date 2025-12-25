@@ -1,6 +1,10 @@
 # ksana
 
+<!-- cSpell:disable -->
+
 *ξανά - "again" in Greek, pronounced /ksaˈna/*
+
+<!-- cSpell:enable -->
 
 This is a rewrite of https://github.com/race-engineering-center/shm-debugger in
 Rust 🦀

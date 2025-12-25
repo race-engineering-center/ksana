@@ -14,6 +14,7 @@
         "recrocks",
         "badmagic",
         "raceroom",
+        "clippy",
         // sim sdk internals
         "bufs",
         "acpmf",
@@ -39,6 +40,8 @@
         "pcstr",
     ],
     "ignorePaths": [
-        "target"
+        ".github/**",
+        "target/**",
+        "Cargo.lock"
     ]
 }
