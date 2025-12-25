@@ -69,6 +69,9 @@ pub enum Error {
 
     #[error(transparent)]
     Dump(#[from] DumpError),
+
+    #[error("Invalid simulator ID")]
+    InvalidSimId,
 }
 
 fn wait_for_connection<'a>(
@@ -79,6 +82,8 @@ fn wait_for_connection<'a>(
     println!("Waiting for simulator connection...");
 
     while !quit_flag.load(Ordering::Relaxed) {
+        #[allow(clippy::needless_range_loop)]
+        // indexed loop used to get mutable reference on a single element, not the whole slice
         for i in 0..connectors.len() {
             if connectors[i].connect() {
                 return Some(ConnectorGuard::new(&mut *connectors[i]));
@@ -140,14 +145,13 @@ pub fn run(quit_flag: Arc<AtomicBool>, fps: u32) -> Result<RecordingFinished, Er
 
     let connector = wait_for_connection(&quit_flag, &mut connectors, &sleeper);
 
-    if connector.is_none() {
+    let Some(connector) = connector else {
         return Ok(RecordingFinished::QuitRequested);
-    }
+    };
 
-    let connector = connector.unwrap();
     let id = connector.id();
 
-    let sim_name = std::str::from_utf8(&id).unwrap();
+    let sim_name = std::str::from_utf8(&id).map_err(|_| Error::InvalidSimId)?;
     println!("Connected to: {}", sim_name);
 
     let filename = generate_filename(sim_name);

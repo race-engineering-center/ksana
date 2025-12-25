@@ -198,7 +198,7 @@ mod tests {
         frame.statics.ac_version[0] = u16::from_le_bytes(*b"AC");
         frame.statics.ac_version[1] = u16::from_le_bytes(*b"v2");
 
-        let statics_data = b"Car: Ferrari 488 GT3, Track: Spa-Francorchamps, Player: TestDriver"; // not really, but whatever
+        let statics_data = b"Car: Ferrari 488 GT3, Track: Fancy Test Track, Player: TestDriver"; // not really, but whatever
         let copy_len = statics_data.len();
         frame.statics.content[..copy_len].copy_from_slice(&statics_data[..copy_len]);
 

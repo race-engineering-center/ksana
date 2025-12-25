@@ -2,7 +2,7 @@ use super::data::{FrameData, Header, IRSDK_MEMMAPFILENAME, VarHeader};
 use crate::Connector;
 use crate::shm::SharedMemoryReader;
 
-const DEFAULT_SHM_SIZE: usize = 1024 * 1024 * 1024;
+const DEFAULT_SHM_SIZE: usize = 1024 * 1024 * 32;
 
 pub struct IRacingConnector {
     shm: Option<SharedMemoryReader>,
@@ -48,6 +48,8 @@ impl IRacingConnector {
     }
 
     fn read_session_info(&self, header: &Header) -> String {
+        #[allow(clippy::expect_used)]
+        // this function is only called when we're connected, otherwise it's a bug so fail fast
         let shm = self
             .shm
             .as_ref()
@@ -64,6 +66,8 @@ impl IRacingConnector {
     }
 
     fn read_raw_data(&self, header: &Header) -> Vec<u8> {
+        #[allow(clippy::expect_used)]
+        // this function is only called when we're connected, otherwise it's a bug so fail fast
         let shm = self
             .shm
             .as_ref()

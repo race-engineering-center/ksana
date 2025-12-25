@@ -70,10 +70,12 @@ impl<W: Write> Saver<W> {
         encoder.write_all(data)?;
         let compressed = encoder.finish()?;
 
+        let compressed_len = compressed.len() as u32;
+        let raw_len = data.len() as u32;
+
         self.writer.write_i32::<LittleEndian>(FRAME_HEADER_SIZE)?;
-        self.writer
-            .write_u32::<LittleEndian>(compressed.len() as u32)?;
-        self.writer.write_u32::<LittleEndian>(data.len() as u32)?;
+        self.writer.write_u32::<LittleEndian>(compressed_len)?;
+        self.writer.write_u32::<LittleEndian>(raw_len)?;
         self.writer.write_all(&compressed)?;
 
         Ok(())
