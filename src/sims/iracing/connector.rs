@@ -48,6 +48,8 @@ impl IRacingConnector {
     }
 
     fn read_session_info(&self, header: &Header) -> String {
+        #[allow(clippy::expect_used)]
+        // this function is only called when we're connected, otherwise it's a bug so fail fast
         let shm = self
             .shm
             .as_ref()
@@ -64,6 +66,8 @@ impl IRacingConnector {
     }
 
     fn read_raw_data(&self, header: &Header) -> Vec<u8> {
+        #[allow(clippy::expect_used)]
+        // this function is only called when we're connected, otherwise it's a bug so fail fast
         let shm = self
             .shm
             .as_ref()

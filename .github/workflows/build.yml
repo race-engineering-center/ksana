@@ -19,32 +19,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
           components: rustfmt, clippy
-
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-          key: windows-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            windows-cargo-
-
-      - name: Cache target directory
-        uses: actions/cache@v4
-        with:
-          path: target
-          key: windows-${{ matrix.rust }}-target-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            windows-${{ matrix.rust }}-target-
 
       - name: Check formatting
         run: cargo fmt --all -- --check
@@ -60,9 +41,9 @@ jobs:
 
       - name: Upload build artifacts
         if: matrix.rust == 'stable' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && github.event_name == 'push'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
-          name: ksana-x64
+          name: ksana-win-x64
           path: |
             target/release/ksana.exe
           retention-days: 30
