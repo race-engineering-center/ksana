@@ -185,5 +185,5 @@ pub fn run(quit_flag: Arc<AtomicBool>, fps: u32) -> Result<RecordingFinished, Er
 
 fn generate_filename(name: &str) -> String {
     let now = chrono::Local::now();
-    format!("ksana_{}_{}.bin", name, now.format("%Y%m%d_%H_%M_%S"))
+    format!("ksana_{}_{}.ksr", name, now.format("%Y%m%d_%H_%M_%S"))
 }

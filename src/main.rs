@@ -40,6 +40,12 @@ enum Commands {
         #[arg(short, long)]
         input: String,
     },
+    /// Inspect recorded file and print info about it
+    Inspect {
+        /// Input file to inspect
+        #[arg(short, long)]
+        input: String,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -59,6 +65,9 @@ fn main() -> anyhow::Result<()> {
         }
         Commands::Play { input } => {
             commands::play::run(quit_flag, &input)?;
+        }
+        Commands::Inspect { input } => {
+            commands::inspect::run(&input)?;
         }
     }
 
