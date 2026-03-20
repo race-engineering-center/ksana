@@ -18,7 +18,8 @@ compile_error!("This project only supports Windows");
 
 #[derive(Parser)]
 #[command(name = "ksana")]
-#[command(about = "Record and playback simulator shared memory")]
+#[command(version)]
+#[command(about = "Record and playback simulator telemetry data")]
 #[command(subcommand_required = false)]
 #[command(disable_help_subcommand = true)]
 struct Cli {
@@ -28,19 +29,19 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Record shared memory to file (default)
+    /// Record raw telemetry data to file (default)
     Dump {
         /// Frames per second [1-60]
         #[arg(short, long, default_value_t = 5)]
         fps: u32,
     },
-    /// Play back recorded file to shared memory
+    /// Play back recorded file as if it is being streamed from the simulator
     Play {
         /// Input file to play
         #[arg(short, long)]
         input: String,
     },
-    /// Inspect recorded file and print info about it
+    /// Inspect recorded file and print basic info about it
     Inspect {
         /// Input file to inspect
         #[arg(short, long)]
