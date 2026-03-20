@@ -33,6 +33,7 @@
         "byteorder",
         "chrono",
         "flate",
+        "humantime",
         "repr",
         "thiserror",
         "nonoverlapping",
