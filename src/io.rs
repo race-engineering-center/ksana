@@ -16,7 +16,7 @@ use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use flate2::Compression;
 use flate2::read::ZlibDecoder;
 use flate2::write::ZlibEncoder;
-use std::io::{self, ErrorKind, Read, Write};
+use std::io::{self, ErrorKind, Read, Seek, SeekFrom, Write};
 use thiserror::Error;
 
 const MAGIC: &[u8; 8] = b"RECROCKS";
@@ -87,14 +87,14 @@ impl<W: Write> Saver<W> {
     }
 }
 
-pub struct Loader<R: Read> {
+pub struct Loader<R: Read + Seek> {
     reader: R,
     version: i32,
     fps: i32,
     id: [u8; 4],
 }
 
-impl<R: Read> Loader<R> {
+impl<R: Read + Seek> Loader<R> {
     pub fn new(mut reader: R) -> Result<Self, IOError> {
         let mut magic = [0u8; 8];
         reader.read_exact(&mut magic)?;
@@ -136,30 +136,11 @@ impl<R: Read> Loader<R> {
     }
 
     pub fn load(&mut self) -> Result<Option<Vec<u8>>, IOError> {
-        let header_size = match self.reader.read_i32::<LittleEndian>() {
-            Ok(size) => size,
-            Err(e) if e.kind() == ErrorKind::UnexpectedEof => return Ok(None),
-            Err(e) => return Err(e.into()),
+        let size = self.read_header()?;
+        let (compressed_len, raw_len) = match size {
+            Some((c, r)) => (c, r),
+            None => return Ok(None),
         };
-        if header_size < 12 {
-            return Err(IOError::InvalidHeaderSize(header_size));
-        }
-
-        let compressed_len = match self.reader.read_u32::<LittleEndian>() {
-            Ok(len) => len as usize,
-            Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => return Ok(None),
-            Err(e) => return Err(e.into()),
-        };
-
-        let raw_len = self.reader.read_u32::<LittleEndian>()? as usize;
-
-        // skip any extra header bytes if present
-        // version() check is used here just to silence the unused warning
-        if self.version() == CURRENT_VERSION {
-            for _ in 0..(header_size - 12) {
-                let _ = self.reader.read_u8()?;
-            }
-        }
 
         let mut compressed = vec![0u8; compressed_len];
         self.reader.read_exact(&mut compressed)?;
@@ -171,6 +152,47 @@ impl<R: Read> Loader<R> {
             .map_err(|_| IOError::DecompressionFailed)?;
 
         Ok(Some(decompressed))
+    }
+
+    pub fn seek(&mut self) -> Result<Option<()>, IOError> {
+        let size = self.read_header()?;
+        let (compressed_len, _) = match size {
+            Some((c, r)) => (c, r),
+            None => return Ok(None),
+        };
+
+        self.reader.seek(SeekFrom::Current(compressed_len as i64))?;
+
+        Ok(Some(()))
+    }
+
+    fn read_header(&mut self) -> Result<Option<(usize, usize)>, IOError> {
+        let header_size = match self.reader.read_i32::<LittleEndian>() {
+            Ok(size) => size,
+            Err(e) if e.kind() == ErrorKind::UnexpectedEof => return Ok(None),
+            Err(e) => return Err(e.into()),
+        };
+        if header_size < 12 {
+            return Err(IOError::InvalidHeaderSize(header_size));
+        }
+
+        let compressed_len = match self.reader.read_u32::<LittleEndian>() {
+            Ok(len) => len as usize,
+            Err(e) => return Err(e.into()),
+        };
+
+        let raw_len = self.reader.read_u32::<LittleEndian>()? as usize;
+
+        // Skip any extra header bytes if present
+        if self.version() == CURRENT_VERSION {
+            let extra_header_bytes = header_size - 12;
+            if extra_header_bytes > 0 {
+                self.reader
+                    .seek(SeekFrom::Current(extra_header_bytes as i64))?;
+            }
+        }
+
+        Ok(Some((compressed_len, raw_len)))
     }
 }
 

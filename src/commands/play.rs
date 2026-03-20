@@ -3,32 +3,12 @@ use std::io::BufReader;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use crate::io::{IOError, Loader};
+use crate::io::Loader;
 use crate::sims::assettocorsa::player::AssettoCorsaPlayer;
 use crate::sims::iracing::player::IRacingPlayer;
 use crate::sleeper::AdaptiveSleeper;
+use crate::traits::PlayError;
 use crate::{Player, Sleeper};
-
-#[derive(thiserror::Error, Debug)]
-pub enum PlayError {
-    #[error("Failed to open file: {0}")]
-    FailedToOpenFile(std::io::Error),
-
-    #[error("Failed to read header: {0}")]
-    FailedToReadHeader(IOError),
-
-    #[error("Unknown simulator ID: {0}")]
-    UnknownSimError(String),
-
-    #[error("Failed to initialize player: {0}")]
-    FailedToInitializePlayer(anyhow::Error),
-
-    #[error("Failed to load frame: {0}")]
-    FailedToLoadFrame(IOError),
-
-    #[error("Failed to update player: {0}")]
-    FailedToUpdatePlayer(anyhow::Error),
-}
 
 pub enum PlayResult {
     EndOfFile,
