@@ -34,7 +34,7 @@ pub fn run(input_file: &str) -> Result<(), PlayError> {
     let mut exited_cleanly = false;
     let mut frame_counter: u64 = 0;
     loop {
-        let _ = match loader.seek() {
+        match loader.seek() {
             Ok(Some(data)) => data,
             Ok(None) => {
                 exited_cleanly = true;

@@ -192,7 +192,7 @@ impl<R: Read + Seek> Loader<R> {
             }
         }
 
-        return Ok(Some((compressed_len, raw_len)));
+        Ok(Some((compressed_len, raw_len)))
     }
 }
 
