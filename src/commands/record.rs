@@ -143,10 +143,10 @@ fn record(
     let start = Instant::now();
 
     while !quit_flag.load(Ordering::Relaxed) {
-        if let Some(max_dur) = duration {
-            if start.elapsed() >= max_dur {
-                return Ok(RecordingFinished::MaxDurationReached);
-            }
+        if let Some(max_dur) = duration
+            && start.elapsed() >= max_dur
+        {
+            return Ok(RecordingFinished::MaxDurationReached);
         }
 
         let start = Instant::now();
@@ -186,7 +186,7 @@ pub fn run(
 
     let duration = match max_duration {
         None => None,
-        Some(ref s) => Some(parse_duration(&s)?),
+        Some(ref s) => Some(parse_duration(s)?),
     };
 
     let mut connectors: Vec<Box<dyn Connector>> = vec![
@@ -222,8 +222,8 @@ pub fn run(
     };
 
     println!("Recording to: {}", filename);
-    if let Some(_) = duration {
-        println!("Max duration: {}", max_duration.unwrap());
+    if let Some(duration) = max_duration {
+        println!("Max duration: {}", duration);
     } else {
         println!("Max duration: unlimited (press Ctrl+C to stop)");
     }
