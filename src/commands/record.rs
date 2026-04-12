@@ -51,7 +51,7 @@ pub enum RecordingFinished {
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum DumpError {
+pub enum RecordError {
     #[error("Failed to create file: {0}")]
     CreateFileError(std::io::Error),
 
@@ -68,7 +68,7 @@ pub enum Error {
     Recording(#[from] RecordingError),
 
     #[error(transparent)]
-    Dump(#[from] DumpError),
+    Record(#[from] RecordError),
 
     #[error("Invalid simulator ID")]
     InvalidSimId,
@@ -158,7 +158,7 @@ pub fn run(quit_flag: Arc<AtomicBool>, fps: u32) -> Result<RecordingFinished, Er
     let file = match File::create(&filename) {
         Ok(f) => f,
         Err(e) => {
-            return Err(Error::from(DumpError::CreateFileError(e)));
+            return Err(Error::from(RecordError::CreateFileError(e)));
         }
     };
 
@@ -166,7 +166,7 @@ pub fn run(quit_flag: Arc<AtomicBool>, fps: u32) -> Result<RecordingFinished, Er
     let mut saver = match Saver::new(writer, fps as i32, id) {
         Ok(s) => s,
         Err(e) => {
-            return Err(Error::from(DumpError::SaverInitError(e)));
+            return Err(Error::from(RecordError::SaverInitError(e)));
         }
     };
 
@@ -174,7 +174,7 @@ pub fn run(quit_flag: Arc<AtomicBool>, fps: u32) -> Result<RecordingFinished, Er
     let result = record(&quit_flag, fps, connector, &mut saver, &mut sleeper)?;
 
     if let Err(e) = saver.flush() {
-        return Err(Error::from(DumpError::FlushFailed(e)));
+        return Err(Error::from(RecordError::FlushFailed(e)));
     }
 
     println!("Recording stopped");

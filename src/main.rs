@@ -30,7 +30,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Record raw telemetry data to file (default)
-    Dump {
+    Record {
         /// Frames per second [1-60]
         #[arg(short, long, default_value_t = 5)]
         fps: u32,
@@ -60,9 +60,9 @@ fn main() -> anyhow::Result<()> {
         println!("\nCtrl+C received. Stopping... Please wait patiently.");
     })?;
 
-    match cli.command.unwrap_or(Commands::Dump { fps: 5 }) {
-        Commands::Dump { fps } => {
-            commands::dump::run(quit_flag, fps.clamp(1, 60))?;
+    match cli.command.unwrap_or(Commands::Record { fps: 5 }) {
+        Commands::Record { fps } => {
+            commands::record::run(quit_flag, fps.clamp(1, 60))?;
         }
         Commands::Play { input } => {
             commands::play::run(quit_flag, &input)?;
