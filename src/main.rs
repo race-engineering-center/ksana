@@ -30,10 +30,17 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Record raw telemetry data to file (default)
-    Dump {
+    Record {
         /// Frames per second [1-60]
         #[arg(short, long, default_value_t = 5)]
         fps: u32,
+
+        /// Maximum duration to record (e.g. "10s", "5m"). If not specified,
+        /// recording will continue until Ctrl+C is pressed or the sim is exited.
+        /// Supported time units: s (seconds), m (minutes), empty time unit not
+        /// allowed.
+        #[arg(long)]
+        max_duration: Option<String>,
     },
     /// Play back recorded file as if it is being streamed from the simulator
     Play {
@@ -60,9 +67,12 @@ fn main() -> anyhow::Result<()> {
         println!("\nCtrl+C received. Stopping... Please wait patiently.");
     })?;
 
-    match cli.command.unwrap_or(Commands::Dump { fps: 5 }) {
-        Commands::Dump { fps } => {
-            commands::dump::run(quit_flag, fps.clamp(1, 60))?;
+    match cli.command.unwrap_or(Commands::Record {
+        fps: 5,
+        max_duration: None,
+    }) {
+        Commands::Record { fps, max_duration } => {
+            commands::record::run(quit_flag, fps.clamp(1, 60), max_duration)?;
         }
         Commands::Play { input } => {
             commands::play::run(quit_flag, &input)?;

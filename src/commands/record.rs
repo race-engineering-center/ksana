@@ -3,6 +3,7 @@ use std::io::BufWriter;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, Instant};
 
 use crate::io::{IOError, Saver};
 use crate::sims::assettocorsa::connector::AssettoCorsaConnector;
@@ -48,10 +49,11 @@ pub enum RecordingError {
 pub enum RecordingFinished {
     SimDisconnected,
     QuitRequested,
+    MaxDurationReached,
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum DumpError {
+pub enum RecordError {
     #[error("Failed to create file: {0}")]
     CreateFileError(std::io::Error),
 
@@ -68,10 +70,41 @@ pub enum Error {
     Recording(#[from] RecordingError),
 
     #[error(transparent)]
-    Dump(#[from] DumpError),
+    Record(#[from] RecordError),
 
     #[error("Invalid simulator ID")]
     InvalidSimId,
+
+    #[error("Failed to parse max duration")]
+    ParseMaxDuration(#[from] ParseDurationError),
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum ParseDurationError {
+    #[error("Invalid format")]
+    InvalidFormat,
+}
+
+fn parse_duration(arg: &str) -> Result<Duration, ParseDurationError> {
+    if arg.is_empty() {
+        return Err(ParseDurationError::InvalidFormat);
+    }
+
+    if let Some(stripped) = arg.strip_suffix('s') {
+        let seconds: u64 = stripped
+            .parse()
+            .map_err(|_| ParseDurationError::InvalidFormat)?;
+        return Ok(Duration::from_secs(seconds));
+    }
+
+    if let Some(stripped) = arg.strip_suffix('m') {
+        let minutes: u64 = stripped
+            .parse()
+            .map_err(|_| ParseDurationError::InvalidFormat)?;
+        return Ok(Duration::from_secs(minutes * 60));
+    }
+
+    Err(ParseDurationError::InvalidFormat)
 }
 
 fn wait_for_connection<'a>(
@@ -101,13 +134,22 @@ fn record(
     mut connector: ConnectorGuard,
     saver: &mut Saver<BufWriter<File>>,
     sleeper: &mut dyn Sleeper,
+    duration: Option<Duration>,
 ) -> Result<RecordingFinished, RecordingError> {
     let tick_ms = 1000.0 / fps as f64;
     let mut no_data_count = 0;
     let max_no_data = 20; // disconnect after ~20 frames with no data
 
+    let start = Instant::now();
+
     while !quit_flag.load(Ordering::Relaxed) {
-        let start = std::time::Instant::now();
+        if let Some(max_dur) = duration
+            && start.elapsed() >= max_dur
+        {
+            return Ok(RecordingFinished::MaxDurationReached);
+        }
+
+        let start = Instant::now();
 
         match connector.update() {
             Some(data) => {
@@ -133,10 +175,19 @@ fn record(
     Ok(RecordingFinished::QuitRequested)
 }
 
-pub fn run(quit_flag: Arc<AtomicBool>, fps: u32) -> Result<RecordingFinished, Error> {
+pub fn run(
+    quit_flag: Arc<AtomicBool>,
+    fps: u32,
+    max_duration: Option<String>,
+) -> Result<RecordingFinished, Error> {
     let mut sleeper = AdaptiveSleeper::default();
 
     println!("Frames per second: {}", fps);
+
+    let duration = match max_duration {
+        None => None,
+        Some(ref s) => Some(parse_duration(s)?),
+    };
 
     let mut connectors: Vec<Box<dyn Connector>> = vec![
         Box::new(IRacingConnector::new()),
@@ -158,7 +209,7 @@ pub fn run(quit_flag: Arc<AtomicBool>, fps: u32) -> Result<RecordingFinished, Er
     let file = match File::create(&filename) {
         Ok(f) => f,
         Err(e) => {
-            return Err(Error::from(DumpError::CreateFileError(e)));
+            return Err(Error::from(RecordError::CreateFileError(e)));
         }
     };
 
@@ -166,15 +217,28 @@ pub fn run(quit_flag: Arc<AtomicBool>, fps: u32) -> Result<RecordingFinished, Er
     let mut saver = match Saver::new(writer, fps as i32, id) {
         Ok(s) => s,
         Err(e) => {
-            return Err(Error::from(DumpError::SaverInitError(e)));
+            return Err(Error::from(RecordError::SaverInitError(e)));
         }
     };
 
     println!("Recording to: {}", filename);
-    let result = record(&quit_flag, fps, connector, &mut saver, &mut sleeper)?;
+    if let Some(duration) = max_duration {
+        println!("Max duration: {}", duration);
+    } else {
+        println!("Max duration: unlimited (press Ctrl+C to stop)");
+    }
+
+    let result = record(
+        &quit_flag,
+        fps,
+        connector,
+        &mut saver,
+        &mut sleeper,
+        duration,
+    )?;
 
     if let Err(e) = saver.flush() {
-        return Err(Error::from(DumpError::FlushFailed(e)));
+        return Err(Error::from(RecordError::FlushFailed(e)));
     }
 
     println!("Recording stopped");
@@ -186,4 +250,52 @@ pub fn run(quit_flag: Arc<AtomicBool>, fps: u32) -> Result<RecordingFinished, Er
 fn generate_filename(name: &str) -> String {
     let now = chrono::Local::now();
     format!("ksana_{}_{}.ksr", name, now.format("%Y%m%d_%H_%M_%S"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_duration_happy() {
+        assert_eq!(parse_duration("30s").unwrap(), Duration::from_secs(30));
+        assert_eq!(parse_duration("0s").unwrap(), Duration::from_secs(0));
+        assert_eq!(parse_duration("12s").unwrap(), Duration::from_secs(12));
+        assert_eq!(parse_duration("5m").unwrap(), Duration::from_secs(300));
+        assert_eq!(parse_duration("1m").unwrap(), Duration::from_secs(60));
+        assert_eq!(parse_duration("10m").unwrap(), Duration::from_secs(600));
+    }
+
+    #[test]
+    fn test_parse_duration_unhappy() {
+        // Empty string
+        assert!(matches!(
+            parse_duration(""),
+            Err(ParseDurationError::InvalidFormat)
+        ));
+
+        // No suffix
+        assert!(matches!(
+            parse_duration("30"),
+            Err(ParseDurationError::InvalidFormat)
+        ));
+
+        // Invalid suffix
+        assert!(matches!(
+            parse_duration("30h"),
+            Err(ParseDurationError::InvalidFormat)
+        ));
+
+        // Invalid number
+        assert!(matches!(
+            parse_duration("abc"),
+            Err(ParseDurationError::InvalidFormat)
+        ));
+
+        // Invalid number with valid suffix
+        assert!(matches!(
+            parse_duration("abcs"),
+            Err(ParseDurationError::InvalidFormat)
+        ));
+    }
 }
