@@ -102,9 +102,9 @@ impl Connector for AssettoCorsaConnector {
         let statics = self.read_statics()?;
 
         let frame = FrameData {
-            graphics,
-            physics,
-            statics,
+            graphics: graphics,
+            physics: physics,
+            statics: Some(statics),
         };
 
         Some(frame.serialize())

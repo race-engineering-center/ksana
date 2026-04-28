@@ -80,11 +80,13 @@ impl Player for AssettoCorsaPlayer {
             physics_shm.write(0, physics_bytes);
 
             // static
-            let statics_bytes = std::slice::from_raw_parts(
-                &frame.statics as *const StaticPage as *const u8,
-                std::mem::size_of::<StaticPage>(),
-            );
-            static_shm.write(0, statics_bytes);
+            if let Some(statics) = &frame.statics {
+                let statics_bytes = std::slice::from_raw_parts(
+                    statics as *const StaticPage as *const u8,
+                    std::mem::size_of::<StaticPage>(),
+                );
+                static_shm.write(0, statics_bytes);
+            }
         }
 
         Ok(())

@@ -61,7 +61,7 @@ pub const FRAME_SIZE: usize = GRAPHICS_PADDED_SIZE + PHYSICS_PADDED_SIZE + STATI
 pub struct FrameData {
     pub graphics: GraphicsPage,
     pub physics: PhysicsPage,
-    pub statics: StaticPage,
+    pub statics: Option<StaticPage>,
 }
 
 impl FrameData {
@@ -169,10 +169,8 @@ mod tests {
         // Physics should be zero
         assert!(frame.physics.content.iter().all(|&b| b == 0));
 
-        // Statics should be zero
-        assert!(frame.statics.sm_version.iter().all(|&v| v == 0));
-        assert!(frame.statics.ac_version.iter().all(|&v| v == 0));
-        assert!(frame.statics.content.iter().all(|&b| b == 0));
+        // Statics should be None
+        assert!(frame.statics.is_none());
     }
 
     #[test]
@@ -192,15 +190,17 @@ mod tests {
         frame.physics.content[..copy_len].copy_from_slice(&physics_data[..copy_len]);
 
         // Set version values to match byte strings when interpreted as little-endian
-        frame.statics.sm_version[0] = u16::from_le_bytes(*b"SM");
-        frame.statics.sm_version[1] = u16::from_le_bytes(*b"v1");
+        frame.statics = Some(StaticPage::default());
+        frame.statics.as_mut().unwrap().sm_version[0] = u16::from_le_bytes(*b"SM");
+        frame.statics.as_mut().unwrap().sm_version[1] = u16::from_le_bytes(*b"v1");
 
-        frame.statics.ac_version[0] = u16::from_le_bytes(*b"AC");
-        frame.statics.ac_version[1] = u16::from_le_bytes(*b"v2");
+        frame.statics.as_mut().unwrap().ac_version[0] = u16::from_le_bytes(*b"AC");
+        frame.statics.as_mut().unwrap().ac_version[1] = u16::from_le_bytes(*b"v2");
 
         let statics_data = b"Car: Ferrari 488 GT3, Track: Fancy Test Track, Player: TestDriver"; // not really, but whatever
         let copy_len = statics_data.len();
-        frame.statics.content[..copy_len].copy_from_slice(&statics_data[..copy_len]);
+        frame.statics.as_mut().unwrap().content[..copy_len]
+            .copy_from_slice(&statics_data[..copy_len]);
 
         let serialized = frame.serialize();
         let deserialized = FrameData::deserialize(&serialized).unwrap();
@@ -220,13 +220,25 @@ mod tests {
         );
 
         // Statics - verify versions can be compared as byte strings
-        assert_eq!(deserialized.statics.sm_version[0].to_le_bytes(), *b"SM");
-        assert_eq!(deserialized.statics.sm_version[1].to_le_bytes(), *b"v1");
-        assert_eq!(deserialized.statics.ac_version[0].to_le_bytes(), *b"AC");
-        assert_eq!(deserialized.statics.ac_version[1].to_le_bytes(), *b"v2");
         assert_eq!(
-            &deserialized.statics.content[..statics_data.len()],
-            &frame.statics.content[..statics_data.len()]
+            deserialized.statics.as_ref().unwrap().sm_version[0].to_le_bytes(),
+            *b"SM"
+        );
+        assert_eq!(
+            deserialized.statics.as_ref().unwrap().sm_version[1].to_le_bytes(),
+            *b"v1"
+        );
+        assert_eq!(
+            deserialized.statics.as_ref().unwrap().ac_version[0].to_le_bytes(),
+            *b"AC"
+        );
+        assert_eq!(
+            deserialized.statics.as_ref().unwrap().ac_version[1].to_le_bytes(),
+            *b"v2"
+        );
+        assert_eq!(
+            &deserialized.statics.as_ref().unwrap().content[..statics_data.len()],
+            &frame.statics.as_ref().unwrap().content[..statics_data.len()]
         );
     }
 }
