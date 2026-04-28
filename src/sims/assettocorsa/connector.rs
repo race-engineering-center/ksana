@@ -10,6 +10,8 @@ pub struct AssettoCorsaConnector {
     graphics_shm: Option<SharedMemoryReader>,
     physics_shm: Option<SharedMemoryReader>,
     static_shm: Option<SharedMemoryReader>,
+
+    prev_statics: Option<StaticPage>,
 }
 
 impl AssettoCorsaConnector {
@@ -18,6 +20,7 @@ impl AssettoCorsaConnector {
             graphics_shm: None,
             physics_shm: None,
             static_shm: None,
+            prev_statics: None,
         }
     }
 
@@ -89,6 +92,7 @@ impl Connector for AssettoCorsaConnector {
         self.graphics_shm = None;
         self.physics_shm = None;
         self.static_shm = None;
+        self.prev_statics = None;
     }
 
     fn update(&mut self) -> Option<Vec<u8>> {
@@ -101,10 +105,15 @@ impl Connector for AssettoCorsaConnector {
         let physics = self.read_physics()?;
         let statics = self.read_statics()?;
 
+        let statics_changed = self.prev_statics != Some(statics);
+        if statics_changed {
+            self.prev_statics = Some(statics);
+        }
+
         let frame = FrameData {
             graphics,
             physics,
-            statics,
+            statics: statics_changed.then_some(statics),
         };
 
         Some(frame.serialize())
