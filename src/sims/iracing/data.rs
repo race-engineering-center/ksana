@@ -112,7 +112,7 @@ impl Header {
 pub struct FrameData {
     pub header: Header,
     pub var_headers: Vec<VarHeader>,
-    pub session_info: Option<String>,
+    pub session_info: Option<Vec<u8>>,
     pub raw_data: Vec<u8>,
 }
 
@@ -141,7 +141,7 @@ impl FrameData {
         match &self.session_info {
             Some(info) => {
                 buffer.write_u64::<LittleEndian>(info.len() as u64).ok()?;
-                buffer.extend_from_slice(info.as_bytes());
+                buffer.extend_from_slice(info);
             }
             None => {
                 buffer.write_u64::<LittleEndian>(0).ok()?;
@@ -178,10 +178,10 @@ impl FrameData {
 
         // session info
         let session_info_len = cursor.read_u64::<LittleEndian>()? as usize;
-        let session_info: Option<String> = if session_info_len > 0 {
+        let session_info: Option<Vec<u8>> = if session_info_len > 0 {
             let mut session_info_bytes = vec![0u8; session_info_len];
             cursor.read_exact(&mut session_info_bytes)?;
-            Some(String::from_utf8_lossy(&session_info_bytes).to_string())
+            Some(session_info_bytes)
         } else {
             None
         };
@@ -300,7 +300,7 @@ mod tests {
                     unit: pad::<IRSDK_MAX_STRING>(b"TestUnit2"),
                 },
             ],
-            session_info: Some("SessionInfo:\n  Type: Race\n".to_string()),
+            session_info: Some(b"SessionInfo:\n  Type: Race\n".to_vec()),
             raw_data: vec![1, 2, 3, 4, 5, 6, 7, 8],
         };
 

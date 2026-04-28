@@ -47,7 +47,7 @@ impl IRacingConnector {
         var_headers
     }
 
-    fn read_session_info(&self, header: &Header) -> String {
+    fn read_session_info(&self, header: &Header) -> Vec<u8> {
         #[allow(clippy::expect_used)]
         // this function is only called when we're connected, otherwise it's a bug so fail fast
         let shm = self
@@ -58,10 +58,8 @@ impl IRacingConnector {
         unsafe {
             let ptr = shm.as_ptr().add(header.session_info_offset as usize);
             let slice = std::slice::from_raw_parts(ptr, header.session_info_len as usize);
-
-            // Find null terminator
             let len = slice.iter().position(|&b| b == 0).unwrap_or(slice.len());
-            String::from_utf8_lossy(&slice[..len]).to_string()
+            slice[..len].to_vec()
         }
     }
 

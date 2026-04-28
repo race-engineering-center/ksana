@@ -76,7 +76,7 @@ impl Player for IRacingPlayer {
             // session info
             if let Some(session_info) = &frame.session_info {
                 let offset = frame.header.session_info_offset as usize;
-                shm.write(offset, session_info.as_bytes());
+                shm.write(offset, session_info);
             }
         }
 
