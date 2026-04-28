@@ -92,6 +92,7 @@ impl Connector for AssettoCorsaConnector {
         self.graphics_shm = None;
         self.physics_shm = None;
         self.static_shm = None;
+        self.prev_statics = None;
     }
 
     fn update(&mut self) -> Option<Vec<u8>> {

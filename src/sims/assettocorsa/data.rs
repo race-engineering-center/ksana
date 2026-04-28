@@ -76,7 +76,7 @@ impl FrameData {
         // graphics
         let graphics_bytes = unsafe {
             std::slice::from_raw_parts(
-                &self.graphics as *const _ as *const u8,
+                &self.graphics as *const GraphicsPage as *const u8,
                 std::mem::size_of::<GraphicsPage>(),
             )
         };
@@ -85,7 +85,7 @@ impl FrameData {
         // physics
         let physics_bytes = unsafe {
             std::slice::from_raw_parts(
-                &self.physics as *const _ as *const u8,
+                &self.physics as *const PhysicsPage as *const u8,
                 std::mem::size_of::<PhysicsPage>(),
             )
         };
@@ -96,7 +96,7 @@ impl FrameData {
         if let Some(statics) = &self.statics {
             let statics_bytes = unsafe {
                 std::slice::from_raw_parts(
-                    &statics as *const _ as *const u8,
+                    statics as *const StaticPage as *const u8,
                     std::mem::size_of::<StaticPage>(),
                 )
             };
