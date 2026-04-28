@@ -49,14 +49,8 @@ pub struct Saver<W: Write> {
 impl<W: Write> Saver<W> {
     pub fn new(mut writer: W, fps: i32, id: [u8; 4]) -> Result<Self, IOError> {
         writer.write_all(MAGIC)?;
-
-        // file version
-        writer.write_i32::<LittleEndian>(1)?;
-
-        // fps
+        writer.write_i32::<LittleEndian>(1)?; // file version
         writer.write_i32::<LittleEndian>(fps)?;
-
-        // sim ID
         writer.write_all(&id)?;
 
         let padding = [0u8; PADDING_SIZE];
