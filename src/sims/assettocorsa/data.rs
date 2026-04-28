@@ -9,7 +9,7 @@ pub const SHM_SIZE: usize = 2048;
 pub const AC_OFF: i32 = 0;
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PhysicsPage {
     pub content: [u8; 1024], // padded with some headroom, real sizeof in AC is 568 bytes, ACC 800 bytes
 }
@@ -17,7 +17,7 @@ pub struct PhysicsPage {
 const PHYSICS_PADDED_SIZE: usize = size_of::<PhysicsPage>();
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GraphicsPage {
     pub packet_id: i32,
     pub status: i32,
@@ -27,7 +27,7 @@ pub struct GraphicsPage {
 const GRAPHICS_PADDED_SIZE: usize = size_of::<GraphicsPage>();
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StaticPage {
     pub sm_version: [u16; 15],
     pub ac_version: [u16; 15],
@@ -56,6 +56,7 @@ impl Default for StaticPage {
 
 // Frame data and serialization
 pub const FRAME_SIZE: usize = GRAPHICS_PADDED_SIZE + PHYSICS_PADDED_SIZE + STATIC_PADDED_SIZE;
+pub const FRAME_SIZE_NO_STATICS: usize = GRAPHICS_PADDED_SIZE + PHYSICS_PADDED_SIZE;
 
 #[derive(Debug, Clone, Default)]
 pub struct FrameData {
@@ -66,7 +67,11 @@ pub struct FrameData {
 
 impl FrameData {
     pub fn serialize(&self) -> Vec<u8> {
-        let mut buffer = vec![0u8; FRAME_SIZE];
+        let mut buffer = if self.statics.is_some() {
+            vec![0u8; FRAME_SIZE]
+        } else {
+            vec![0u8; FRAME_SIZE_NO_STATICS]
+        };
 
         // graphics
         let graphics_bytes = unsafe {
@@ -88,20 +93,23 @@ impl FrameData {
         buffer[physics_offset..physics_offset + physics_bytes.len()].copy_from_slice(physics_bytes);
 
         // statics
-        let statics_bytes = unsafe {
-            std::slice::from_raw_parts(
-                &self.statics as *const _ as *const u8,
-                std::mem::size_of::<StaticPage>(),
-            )
-        };
-        let statics_offset = GRAPHICS_PADDED_SIZE + PHYSICS_PADDED_SIZE;
-        buffer[statics_offset..statics_offset + statics_bytes.len()].copy_from_slice(statics_bytes);
+        if let Some(statics) = &self.statics {
+            let statics_bytes = unsafe {
+                std::slice::from_raw_parts(
+                    &statics as *const _ as *const u8,
+                    std::mem::size_of::<StaticPage>(),
+                )
+            };
+            let statics_offset = GRAPHICS_PADDED_SIZE + PHYSICS_PADDED_SIZE;
+            buffer[statics_offset..statics_offset + statics_bytes.len()]
+                .copy_from_slice(statics_bytes);
+        }
 
         buffer
     }
 
     pub fn deserialize(bytes: &[u8]) -> io::Result<Self> {
-        if bytes.len() < FRAME_SIZE {
+        if bytes.len() < FRAME_SIZE_NO_STATICS {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "Buffer too small for ACC frame data",
@@ -132,14 +140,25 @@ impl FrameData {
         }
 
         // statics
-        let statics_offset = GRAPHICS_PADDED_SIZE + PHYSICS_PADDED_SIZE;
-        let statics_size = std::mem::size_of::<StaticPage>();
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                bytes.as_ptr().add(statics_offset),
-                &mut result.statics as *mut _ as *mut u8,
-                statics_size,
-            );
+        if bytes.len() > FRAME_SIZE_NO_STATICS {
+            if bytes.len() != FRAME_SIZE {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "Buffer size does not match expected size for frame with statics",
+                ));
+            }
+
+            let statics_offset = GRAPHICS_PADDED_SIZE + PHYSICS_PADDED_SIZE;
+            let statics_size = std::mem::size_of::<StaticPage>();
+            unsafe {
+                let mut statics = StaticPage::default();
+                std::ptr::copy_nonoverlapping(
+                    bytes.as_ptr().add(statics_offset),
+                    &mut statics as *mut _ as *mut u8,
+                    statics_size,
+                );
+                result.statics = Some(statics);
+            }
         }
 
         Ok(result)

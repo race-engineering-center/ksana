@@ -10,6 +10,8 @@ pub struct AssettoCorsaConnector {
     graphics_shm: Option<SharedMemoryReader>,
     physics_shm: Option<SharedMemoryReader>,
     static_shm: Option<SharedMemoryReader>,
+
+    prev_statics: Option<StaticPage>,
 }
 
 impl AssettoCorsaConnector {
@@ -18,6 +20,7 @@ impl AssettoCorsaConnector {
             graphics_shm: None,
             physics_shm: None,
             static_shm: None,
+            prev_statics: None,
         }
     }
 
@@ -101,10 +104,15 @@ impl Connector for AssettoCorsaConnector {
         let physics = self.read_physics()?;
         let statics = self.read_statics()?;
 
+        let statics_changed = self.prev_statics.map_or(true, |prev| prev != statics);
+        if statics_changed {
+            self.prev_statics = Some(statics);
+        }
+
         let frame = FrameData {
-            graphics: graphics,
-            physics: physics,
-            statics: Some(statics),
+            graphics,
+            physics,
+            statics: statics_changed.then_some(statics),
         };
 
         Some(frame.serialize())
