@@ -105,7 +105,7 @@ impl Connector for AssettoCorsaConnector {
         let physics = self.read_physics()?;
         let statics = self.read_statics()?;
 
-        let statics_changed = self.prev_statics.map_or(true, |prev| prev != statics);
+        let statics_changed = self.prev_statics != Some(statics);
         if statics_changed {
             self.prev_statics = Some(statics);
         }
