@@ -1,50 +1,20 @@
-use super::data::{
-    AC_GRAPHICS_SHM, AC_OFF, AC_PHYSICS_SHM, AC_STATIC_SHM, FrameData, GraphicsPage, PhysicsPage,
-    StaticPage,
-};
+use super::data::{AC_OFF, FrameData, StaticPage};
+use super::shm::{AC_GRAPHICS_SHM, AC_PHYSICS_SHM, AC_STATIC_SHM};
+use super::shmio::AssettoCorsaSharedMemoryReader;
 use crate::Connector;
-use crate::shm::SharedMemoryReader;
 use crate::sims::assettocorsa::data::SHM_SIZE;
+use crate::sims::assettocorsa::shmio::SharedMemoryRegionInfo;
 
 pub struct AssettoCorsaConnector {
-    graphics_shm: Option<SharedMemoryReader>,
-    physics_shm: Option<SharedMemoryReader>,
-    static_shm: Option<SharedMemoryReader>,
-
+    reader: Option<AssettoCorsaSharedMemoryReader>,
     prev_statics: Option<StaticPage>,
 }
 
 impl AssettoCorsaConnector {
     pub fn new() -> Self {
         Self {
-            graphics_shm: None,
-            physics_shm: None,
-            static_shm: None,
+            reader: None,
             prev_statics: None,
-        }
-    }
-
-    fn read_graphics(&self) -> Option<GraphicsPage> {
-        let shm = self.graphics_shm.as_ref()?;
-        unsafe {
-            let ptr = shm.as_ptr() as *const GraphicsPage;
-            Some(std::ptr::read(ptr))
-        }
-    }
-
-    fn read_physics(&self) -> Option<PhysicsPage> {
-        let shm = self.physics_shm.as_ref()?;
-        unsafe {
-            let ptr = shm.as_ptr() as *const PhysicsPage;
-            Some(std::ptr::read(ptr))
-        }
-    }
-
-    fn read_statics(&self) -> Option<StaticPage> {
-        let shm = self.static_shm.as_ref()?;
-        unsafe {
-            let ptr = shm.as_ptr() as *const StaticPage;
-            Some(std::ptr::read(ptr))
         }
     }
 }
@@ -57,53 +27,43 @@ impl Default for AssettoCorsaConnector {
 
 impl Connector for AssettoCorsaConnector {
     fn connect(&mut self) -> bool {
-        let graphics = match SharedMemoryReader::open(AC_GRAPHICS_SHM, SHM_SIZE) {
-            Ok(shm) => shm,
-            Err(_) => return false,
+        let reader = match AssettoCorsaSharedMemoryReader::new(
+            SharedMemoryRegionInfo::new(AC_GRAPHICS_SHM, SHM_SIZE),
+            SharedMemoryRegionInfo::new(AC_PHYSICS_SHM, SHM_SIZE),
+            SharedMemoryRegionInfo::new(AC_STATIC_SHM, SHM_SIZE),
+        ) {
+            Some(r) => r,
+            None => return false,
         };
 
-        let physics = match SharedMemoryReader::open(AC_PHYSICS_SHM, SHM_SIZE) {
-            Ok(shm) => shm,
-            Err(_) => return false,
-        };
-
-        let statics = match SharedMemoryReader::open(AC_STATIC_SHM, SHM_SIZE) {
-            Ok(shm) => shm,
-            Err(_) => return false,
-        };
-
-        unsafe {
-            let graphics_ptr = graphics.as_ptr() as *const GraphicsPage;
-            let graphics_page = std::ptr::read(graphics_ptr);
-
-            if graphics_page.status == AC_OFF {
-                return false;
+        match reader.read_graphics() {
+            Some(graphics) => {
+                if graphics.status == AC_OFF {
+                    return false;
+                }
             }
+            None => return false,
         }
 
-        self.graphics_shm = Some(graphics);
-        self.physics_shm = Some(physics);
-        self.static_shm = Some(statics);
-
+        self.reader = Some(reader);
         true
     }
 
     fn disconnect(&mut self) {
-        self.graphics_shm = None;
-        self.physics_shm = None;
-        self.static_shm = None;
+        self.reader = None;
         self.prev_statics = None;
     }
 
     fn update(&mut self) -> Option<Vec<u8>> {
-        let graphics = self.read_graphics()?;
+        let reader = self.reader.as_ref()?;
+        let graphics = reader.read_graphics()?;
 
         if graphics.status == AC_OFF {
             return None;
         }
 
-        let physics = self.read_physics()?;
-        let statics = self.read_statics()?;
+        let physics = reader.read_physics()?;
+        let statics = reader.read_statics()?;
 
         let statics_changed = self.prev_statics != Some(statics);
         if statics_changed {

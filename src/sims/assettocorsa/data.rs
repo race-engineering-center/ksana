@@ -1,9 +1,5 @@
 use std::io;
 
-pub const AC_GRAPHICS_SHM: &str = "Local\\acpmf_graphics";
-pub const AC_PHYSICS_SHM: &str = "Local\\acpmf_physics";
-pub const AC_STATIC_SHM: &str = "Local\\acpmf_static";
-
 pub const SHM_SIZE: usize = 2048;
 
 pub const AC_OFF: i32 = 0;
@@ -112,7 +108,7 @@ impl FrameData {
         if bytes.len() < FRAME_SIZE_NO_STATICS {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                "Buffer too small for ACC frame data",
+                "Buffer too small for Assetto Corsa frame data",
             ));
         }
 
