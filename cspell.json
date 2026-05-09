@@ -1,6 +1,11 @@
 {
     "version": "0.2",
     "language": "en",
+    "dictionaries": [
+        "python",
+        "rust",
+        "rust-crates"
+    ],
     "words": [
         "ksana",
         "dmitriy",
@@ -30,29 +35,17 @@
         // sim ids
         "acsa",
         "irac",
-        // rust-related
-        "bitfield",
-        "byteorder",
-        "chrono",
-        "flate",
-        "humantime",
-        "repr",
-        "thiserror",
-        "nonoverlapping",
         // windows corner
         "readwrite",
         "pcstr",
         // python end to end tests
         "metafunc",
         "fixturenames",
-        "pytest",
-        "pycache",
-        "mypy",
-        "venv",
     ],
     "ignorePaths": [
         ".github/**",
         "target/**",
-        "Cargo.lock"
+        "Cargo.lock",
+        "pyproject.toml",
     ]
 }
