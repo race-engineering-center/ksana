@@ -4,7 +4,16 @@ on:
   push:
     branches:
       - main
+    paths-ignore: &paths-ignore
+      - 'README.md'
+      - 'cspell.json'
+      - 'img/**'
+      - '.github/workflows/spellcheck.yml'
   pull_request:
+    paths-ignore: *paths-ignore
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 6'  # every Saturday at midnight UTC
 
 env:
   RUSTFLAGS: "-Dwarnings"
@@ -33,11 +42,26 @@ jobs:
       - name: Check clippy
         run: cargo clippy
 
-      - name: Build
+      - name: Build debug
+        run: cargo build --verbose
+
+      - name: Build release
         run: cargo build --verbose --release
 
       - name: Run tests
         run: cargo test --verbose
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v8.1.0
+
+      - name: Install Python dependencies
+        run: uv sync
+
+      - name: Lint end to end tests
+        run: uv run ruff check tests/
+
+      - name: Run end to end tests
+        run: uv run pytest -v
 
       - name: Upload build artifacts
         if: matrix.rust == 'stable' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && github.event_name == 'push'
@@ -46,4 +70,4 @@ jobs:
           name: ksana-win-x64
           path: |
             target/release/ksana.exe
-          retention-days: 30
+          retention-days: 7
