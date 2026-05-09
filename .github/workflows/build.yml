@@ -5,6 +5,9 @@ on:
     branches:
       - main
   pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 6'  # every Saturday at midnight UTC
 
 env:
   RUSTFLAGS: "-Dwarnings"
@@ -14,6 +17,7 @@ jobs:
     strategy:
       matrix:
         rust: [stable, beta]
+        profile: [debug, release]
 
     runs-on: windows-latest
 
@@ -34,16 +38,28 @@ jobs:
         run: cargo clippy
 
       - name: Build
-        run: cargo build --verbose --release
+        run: cargo build --verbose ${{ matrix.profile == 'release' && '--release' || '' }}
 
       - name: Run tests
         run: cargo test --verbose
 
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v8
+
+      - name: Install Python dependencies
+        run: uv sync
+
+      - name: Lint tests
+        run: uv run ruff check tests/
+
+      - name: Run tests
+        run: uv run pytest
+
       - name: Upload build artifacts
-        if: matrix.rust == 'stable' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && github.event_name == 'push'
+        if: matrix.rust == 'stable' && matrix.profile == 'release' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && github.event_name == 'push'
         uses: actions/upload-artifact@v6
         with:
           name: ksana-win-x64
           path: |
             target/release/ksana.exe
-          retention-days: 30
+          retention-days: 7
