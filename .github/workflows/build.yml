@@ -63,3 +63,13 @@ jobs:
           path: |
             target/release/ksana.exe
           retention-days: 7
+
+  ci:
+    needs: test
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: All checks passed
+        uses: re-actors/alls-green@release/v1
+        with:
+          jobs: ${{ toJSON(needs) }}
