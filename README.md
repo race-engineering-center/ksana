@@ -79,8 +79,14 @@ Record shared memory to file (default)
 Usage: ksana.exe record [OPTIONS]
 
 Options:
-      --fps <FPS>  Frames per second [1-60] [default: 5]
-  -h, --help       Print help
+  -f, --fps <FPS>                    Frames per second [1-60] [default: 5]
+      --max-duration <MAX_DURATION>  Maximum duration to record (e.g. "10s",
+                                     "5m"). If not specified, recording will
+                                     continue until Ctrl+C is pressed or the sim
+                                     is exited. Supported time units:
+                                     s (seconds), m (minutes), empty time
+                                     unit not allowed
+  -h, --help                         Print help
 ```
 
 Note that high FPS can lead to higher CPU usage.
