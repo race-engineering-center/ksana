@@ -53,7 +53,7 @@ jobs:
         run: uv run ruff check tests/
 
       - name: Run tests
-        run: uv run pytest
+        run: uv run pytest -v
 
       - name: Upload build artifacts
         if: matrix.rust == 'stable' && matrix.profile == 'release' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && github.event_name == 'push'
