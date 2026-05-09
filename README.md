@@ -168,6 +168,29 @@ refer to the following files:
 - iRacing: [src/sims/iracing/data.rs](src/sims/iracing/data.rs)
 - Assetto Corsa: [src/sims/assettocorsa/data.rs](src/sims/assettocorsa/data.rs)
 
+## End-to-end tests
+
+End-to-end tests use pytest and python-based test scenarios that for basic (so
+far) testing.
+
+Install Python dependencies first:
+
+```
+uv venv .venv
+.venv\Scripts\activate
+uv sync
+```
+
+Run tests with pytest:
+
+```
+uv run pytest -v
+```
+
+Tests will automatically discover debug and release builds if present and run
+against all the available build types. If no builds found, an error will be
+raised.
+
 ## License
 
 This project is distributed under MIT license

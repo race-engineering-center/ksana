@@ -4,7 +4,13 @@ on:
   push:
     branches:
       - main
+    paths-ignore: &paths-ignore
+      - 'README.md'
+      - 'cspell.json'
+      - 'img/**'
+      - '.github/workflows/spellcheck.yml'
   pull_request:
+    paths-ignore: *paths-ignore
   workflow_dispatch:
   schedule:
     - cron: '0 0 * * 6'  # every Saturday at midnight UTC
@@ -17,7 +23,6 @@ jobs:
     strategy:
       matrix:
         rust: [stable, beta]
-        profile: [debug, release]
 
     runs-on: windows-latest
 
@@ -37,8 +42,11 @@ jobs:
       - name: Check clippy
         run: cargo clippy
 
-      - name: Build
-        run: cargo build --verbose ${{ matrix.profile == 'release' && '--release' || '' }}
+      - name: Build debug
+        run: cargo build --verbose
+
+      - name: Build release
+        run: cargo build --verbose --release
 
       - name: Run tests
         run: cargo test --verbose
@@ -49,27 +57,17 @@ jobs:
       - name: Install Python dependencies
         run: uv sync
 
-      - name: Lint tests
+      - name: Lint end to end tests
         run: uv run ruff check tests/
 
-      - name: Run tests
+      - name: Run end to end tests
         run: uv run pytest -v
 
       - name: Upload build artifacts
-        if: matrix.rust == 'stable' && matrix.profile == 'release' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && github.event_name == 'push'
+        if: matrix.rust == 'stable' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && github.event_name == 'push'
         uses: actions/upload-artifact@v6
         with:
           name: ksana-win-x64
           path: |
             target/release/ksana.exe
           retention-days: 7
-
-  ci:
-    needs: test
-    runs-on: ubuntu-latest
-    if: always()
-    steps:
-      - name: All checks passed
-        uses: re-actors/alls-green@release/v1
-        with:
-          jobs: ${{ toJSON(needs) }}
