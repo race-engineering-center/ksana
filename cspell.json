@@ -42,6 +42,13 @@
         // windows corner
         "readwrite",
         "pcstr",
+        // python end to end tests
+        "metafunc",
+        "fixturenames",
+        "pytest",
+        "pycache",
+        "mypy",
+        "venv",
     ],
     "ignorePaths": [
         ".github/**",
