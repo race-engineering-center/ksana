@@ -35,6 +35,9 @@
         // sim ids
         "acsa",
         "irac",
+        // rust
+        "miri",
+        "nonoverlapping",
         // windows corner
         "readwrite",
         "pcstr",

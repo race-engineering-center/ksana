@@ -153,6 +153,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(miri))]
     fn test_read_write() {
         use super::*;
 
