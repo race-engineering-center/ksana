@@ -163,7 +163,8 @@ impl FrameData {
         // header
         let mut header_bytes = [0u8; Header::SIZE];
         cursor.read_exact(&mut header_bytes)?;
-        let header: Header = unsafe { std::ptr::read(header_bytes.as_ptr() as *const Header) };
+        let header: Header =
+            unsafe { std::ptr::read_unaligned(header_bytes.as_ptr() as *const Header) };
 
         // var headers
         let var_header_size = std::mem::size_of::<VarHeader>();
@@ -172,7 +173,7 @@ impl FrameData {
             let mut vh_bytes = vec![0u8; var_header_size];
             cursor.read_exact(&mut vh_bytes)?;
             let var_header: VarHeader =
-                unsafe { std::ptr::read(vh_bytes.as_ptr() as *const VarHeader) };
+                unsafe { std::ptr::read_unaligned(vh_bytes.as_ptr() as *const VarHeader) };
             var_headers.push(var_header);
         }
 

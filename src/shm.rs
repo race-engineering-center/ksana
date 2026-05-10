@@ -206,6 +206,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(not(miri))]
     fn test_create_and_read_shared_memory() {
         let name = "Local\\KsanaTestShm";
         let size = 1024;
@@ -239,6 +240,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(miri))]
     fn test_write_at_offset() {
         let name = "Local\\KsanaTestShmOffset";
         let size = 1024;
@@ -258,6 +260,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(miri))]
     fn test_open_nonexistent_fails() {
         let result = SharedMemoryReader::open("Local\\NonexistentShm12345", 1024);
         assert!(matches!(result, Err(SharedMemoryError::OpenFailed { .. })));
