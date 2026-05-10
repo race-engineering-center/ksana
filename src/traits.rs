@@ -12,7 +12,7 @@ pub trait Connector {
 }
 
 pub trait Player {
-    fn initialize(&mut self) -> anyhow::Result<()>;
+    fn initialize(&mut self, file_version: i32) -> anyhow::Result<()>;
     fn update(&mut self, data: &[u8]) -> anyhow::Result<()>;
     fn stop(&mut self);
 }

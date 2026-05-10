@@ -51,7 +51,7 @@ pub fn run(quit_flag: Arc<AtomicBool>, input_file: &str) -> Result<PlayResult, P
         }
     };
 
-    if let Err(e) = player.initialize() {
+    if let Err(e) = player.initialize(loader.version()) {
         return Err(PlayError::FailedToInitializePlayer(e));
     }
 

@@ -27,7 +27,7 @@ impl Default for AssettoCorsaPlayer {
 }
 
 impl Player for AssettoCorsaPlayer {
-    fn initialize(&mut self) -> anyhow::Result<()> {
+    fn initialize(&mut self, _file_version: i32) -> anyhow::Result<()> {
         let writer = AssettoCorsaSharedMemoryWriter::new(
             SharedMemoryRegionInfo::new(AC_GRAPHICS_SHM, SHM_SIZE),
             SharedMemoryRegionInfo::new(AC_PHYSICS_SHM, SHM_SIZE),

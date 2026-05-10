@@ -21,7 +21,7 @@ use thiserror::Error;
 
 const MAGIC: &[u8; 8] = b"RECROCKS";
 const PADDING_SIZE: usize = 52; // 72 - 8 (magic) - 4 (fps) - 4 (id)
-const CURRENT_VERSION: i32 = 1;
+const CURRENT_VERSION: i32 = 2;
 const FRAME_HEADER_SIZE: i32 = 12; // header size + compressed len raw len
 
 #[derive(Error, Debug)]
@@ -49,7 +49,7 @@ pub struct Saver<W: Write> {
 impl<W: Write> Saver<W> {
     pub fn new(mut writer: W, fps: i32, id: [u8; 4]) -> Result<Self, IOError> {
         writer.write_all(MAGIC)?;
-        writer.write_i32::<LittleEndian>(1)?; // file version
+        writer.write_i32::<LittleEndian>(CURRENT_VERSION)?;
         writer.write_i32::<LittleEndian>(fps)?;
         writer.write_all(&id)?;
 
