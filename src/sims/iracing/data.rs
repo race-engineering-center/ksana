@@ -4,9 +4,11 @@ use std::io::{self, Cursor, Read};
 pub const IRSDK_MAX_BUFS: usize = 4;
 pub const IRSDK_MAX_STRING: usize = 32;
 
+// All sim frame payloads begin with a 16-byte frame header: 1 byte type + 15 bytes reserved.
+// This is the standard across all sims and allows future extension without a file version bump.
 const FRAME_TYPE_FULL: u8 = 0x01; // var_headers present
 const FRAME_TYPE_DATA_ONLY: u8 = 0x02; // var_headers absent
-const FRAME_HEADER_RESERVED: usize = 7;
+const FRAME_HEADER_RESERVED: usize = 15;
 
 pub const IRSDK_MAX_DESC: usize = 64;
 
