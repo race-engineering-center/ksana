@@ -12,11 +12,15 @@ enum AssettoCorsaError {
 
 pub struct AssettoCorsaPlayer {
     writer: Option<AssettoCorsaSharedMemoryWriter>,
+    file_version: i32,
 }
 
 impl AssettoCorsaPlayer {
     pub fn new() -> Self {
-        Self { writer: None }
+        Self {
+            writer: None,
+            file_version: 1,
+        }
     }
 }
 
@@ -27,7 +31,8 @@ impl Default for AssettoCorsaPlayer {
 }
 
 impl Player for AssettoCorsaPlayer {
-    fn initialize(&mut self, _file_version: i32) -> anyhow::Result<()> {
+    fn initialize(&mut self, file_version: i32) -> anyhow::Result<()> {
+        self.file_version = file_version;
         let writer = AssettoCorsaSharedMemoryWriter::new(
             SharedMemoryRegionInfo::new(AC_GRAPHICS_SHM, SHM_SIZE),
             SharedMemoryRegionInfo::new(AC_PHYSICS_SHM, SHM_SIZE),
@@ -40,7 +45,7 @@ impl Player for AssettoCorsaPlayer {
 
     fn update(&mut self, data: &[u8]) -> anyhow::Result<()> {
         let writer = self.writer.as_mut().expect("Player not initialized");
-        writer.update(data)
+        writer.update(data, self.file_version)
     }
 
     fn stop(&mut self) {

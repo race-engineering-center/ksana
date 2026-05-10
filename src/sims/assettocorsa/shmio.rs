@@ -86,14 +86,14 @@ impl AssettoCorsaSharedMemoryWriter {
         })
     }
 
-    pub fn update(&mut self, data: &[u8]) -> anyhow::Result<()> {
+    pub fn update(&mut self, data: &[u8], file_version: i32) -> anyhow::Result<()> {
         let graphics_shm = self
             .graphics_shm
             .as_mut()
             .expect("Graphics not initialized");
         let physics_shm = self.physics_shm.as_mut().expect("Physics not initialized");
 
-        let frame = FrameData::deserialize(data)?;
+        let frame = FrameData::deserialize(data, file_version)?;
 
         unsafe {
             // graphics
@@ -202,7 +202,7 @@ mod tests {
         });
 
         let data = frame.serialize();
-        writer.update(&data).unwrap();
+        writer.update(&data, 2).unwrap();
 
         let graphics = reader.read_graphics().unwrap();
         let physics = reader.read_physics().unwrap();
@@ -220,7 +220,7 @@ mod tests {
         second_frame.graphics.content = [9; 2040];
 
         let data = second_frame.serialize();
-        writer.update(&data).unwrap();
+        writer.update(&data, 2).unwrap();
 
         let graphics = reader.read_graphics().unwrap();
         let physics = reader.read_physics().unwrap();
