@@ -11,7 +11,7 @@ mod sims;
 mod sleeper;
 mod traits;
 
-pub use traits::{Connector, Player, Sleeper};
+pub use traits::{Connector, Player, SimInfo, Sleeper};
 
 #[cfg(not(windows))]
 compile_error!("This project only supports Windows");

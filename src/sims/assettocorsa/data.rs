@@ -1,5 +1,7 @@
 use std::io;
 
+pub const CURRENT_PAYLOAD_VERSION: i32 = 2;
+
 pub const SHM_SIZE: usize = 2048;
 
 pub const AC_OFF: i32 = 0;
@@ -131,8 +133,8 @@ impl FrameData {
         buffer
     }
 
-    pub fn deserialize(bytes: &[u8], file_version: i32) -> io::Result<Self> {
-        let (has_statics, data_offset) = if file_version >= 2 {
+    pub fn deserialize(bytes: &[u8], payload_version: i32) -> io::Result<Self> {
+        let (has_statics, data_offset) = if payload_version >= 2 {
             if bytes.len() < FRAME_HEADER_SIZE {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidData,

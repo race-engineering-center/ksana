@@ -1,6 +1,8 @@
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{self, Cursor, Read};
 
+pub const CURRENT_PAYLOAD_VERSION: i32 = 2;
+
 pub const IRSDK_MAX_BUFS: usize = 4;
 pub const IRSDK_MAX_STRING: usize = 32;
 
@@ -175,11 +177,11 @@ impl FrameData {
         Some(buffer)
     }
 
-    pub fn deserialize(bytes: &[u8], file_version: i32) -> io::Result<Self> {
+    pub fn deserialize(bytes: &[u8], payload_version: i32) -> io::Result<Self> {
         let mut cursor = Cursor::new(bytes);
 
         // frame header (v2+): type byte + reserved padding
-        let frame_type = if file_version >= 2 {
+        let frame_type = if payload_version >= 2 {
             let ft = cursor.read_u8()?;
             let mut reserved = [0u8; FRAME_HEADER_RESERVED];
             cursor.read_exact(&mut reserved)?;

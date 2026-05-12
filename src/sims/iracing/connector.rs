@@ -1,6 +1,6 @@
-use super::data::{FrameData, Header, IRSDK_MEMMAPFILENAME, VarHeader};
-use crate::Connector;
+use super::data::{CURRENT_PAYLOAD_VERSION, FrameData, Header, IRSDK_MEMMAPFILENAME, VarHeader};
 use crate::shm::SharedMemoryReader;
+use crate::{Connector, SimInfo};
 
 const DEFAULT_SHM_SIZE: usize = 1024 * 1024 * 32;
 
@@ -163,7 +163,10 @@ impl Connector for IRacingConnector {
         frame.serialize()
     }
 
-    fn id(&self) -> [u8; 4] {
-        *b"irac"
+    fn info(&self) -> SimInfo {
+        SimInfo {
+            id: *b"irac",
+            payload_version: CURRENT_PAYLOAD_VERSION,
+        }
     }
 }
