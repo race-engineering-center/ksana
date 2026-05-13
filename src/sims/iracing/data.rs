@@ -183,6 +183,12 @@ impl FrameData {
         // frame header (v2+): type byte + reserved padding
         let frame_type = if payload_version >= 2 {
             let ft = cursor.read_u8()?;
+            if ft != FRAME_TYPE_FULL && ft != FRAME_TYPE_DATA_ONLY {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("Unknown iRacing frame type: {ft:#04x}"),
+                ));
+            }
             let mut reserved = [0u8; FRAME_HEADER_RESERVED];
             cursor.read_exact(&mut reserved)?;
             ft

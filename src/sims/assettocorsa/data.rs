@@ -142,6 +142,12 @@ impl FrameData {
                 ));
             }
             let frame_type = bytes[0];
+            if frame_type != FRAME_TYPE_WITH_STATICS && frame_type != FRAME_TYPE_NO_STATICS {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("Unknown AC frame type: {frame_type:#04x}"),
+                ));
+            }
             (frame_type == FRAME_TYPE_WITH_STATICS, FRAME_HEADER_SIZE)
         } else {
             // v1: no frame header, infer statics from buffer size
