@@ -41,9 +41,16 @@ pub fn run(quit_flag: Arc<AtomicBool>, input_file: &str) -> Result<PlayResult, P
         fps
     );
 
+    let pv = loader.payload_version();
     let mut player: Box<dyn Player> = match &id {
-        b"irac" => Box::new(IRacingPlayer::new()),
-        b"acsa" => Box::new(AssettoCorsaPlayer::new()),
+        b"irac" => {
+            let p = IRacingPlayer::new(pv).map_err(PlayError::FailedToCreatePlayer)?;
+            Box::new(p) as Box<dyn Player>
+        }
+        b"acsa" => {
+            let p = AssettoCorsaPlayer::new(pv).map_err(PlayError::FailedToCreatePlayer)?;
+            Box::new(p) as Box<dyn Player>
+        }
         _ => {
             return Err(PlayError::UnknownSimError(
                 std::str::from_utf8(&id).unwrap_or("????").to_string(),
@@ -51,11 +58,7 @@ pub fn run(quit_flag: Arc<AtomicBool>, input_file: &str) -> Result<PlayResult, P
         }
     };
 
-    if let Err(e) = player.initialize() {
-        return Err(PlayError::FailedToInitializePlayer(e));
-    }
-
-    println!("Player initialized, starting playback");
+    println!("Player ready, starting playback");
 
     let sleeper = AdaptiveSleeper::default();
     let tick_ms = 1000.0 / fps as f64;

@@ -8,7 +8,7 @@ use windows::Win32::System::Memory::{
     CreateFileMappingA, FILE_MAP_READ, FILE_MAP_WRITE, MEMORY_MAPPED_VIEW_ADDRESS, MapViewOfFile,
     OpenFileMappingA, PAGE_READWRITE, UnmapViewOfFile,
 };
-use windows::Win32::System::Threading::CreateEventA;
+use windows::Win32::System::Threading::{CreateEventA, SetEvent};
 use windows::core::PCSTR;
 
 #[allow(clippy::enum_variant_names)]
@@ -180,7 +180,7 @@ impl EventHandle {
         let handle = unsafe {
             CreateEventA(
                 None,
-                false, // manual reset
+                false, // auto-reset — resets after releasing one waiter per signal
                 false, // initial state
                 PCSTR::from_raw(name_cstr.as_ptr() as *const u8),
             )
@@ -190,6 +190,10 @@ impl EventHandle {
         })?;
 
         Ok(Self { handle })
+    }
+
+    pub fn signal(&self) {
+        unsafe { SetEvent(self.handle).ok() };
     }
 }
 
@@ -206,6 +210,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(not(miri))]
     fn test_create_and_read_shared_memory() {
         let name = "Local\\KsanaTestShm";
         let size = 1024;
@@ -239,6 +244,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(miri))]
     fn test_write_at_offset() {
         let name = "Local\\KsanaTestShmOffset";
         let size = 1024;
@@ -258,6 +264,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(miri))]
     fn test_open_nonexistent_fails() {
         let result = SharedMemoryReader::open("Local\\NonexistentShm12345", 1024);
         assert!(matches!(result, Err(SharedMemoryError::OpenFailed { .. })));

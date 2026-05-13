@@ -1,8 +1,17 @@
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{self, Cursor, Read};
 
+pub const CURRENT_PAYLOAD_VERSION: i32 = 2;
+
 pub const IRSDK_MAX_BUFS: usize = 4;
 pub const IRSDK_MAX_STRING: usize = 32;
+
+// All sim frame payloads begin with a 16-byte frame header: 1 byte type + 15 bytes reserved.
+// This is the standard across all sims and allows future extension without a file version bump.
+const FRAME_TYPE_FULL: u8 = 0x01; // var_headers present
+const FRAME_TYPE_DATA_ONLY: u8 = 0x02; // var_headers absent
+const FRAME_HEADER_RESERVED: usize = 15;
+
 pub const IRSDK_MAX_DESC: usize = 64;
 
 pub const IRSDK_MEMMAPFILENAME: &str = "Local\\IRSDKMemMapFileName";
@@ -22,7 +31,7 @@ pub struct VarBuf {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct VarHeader {
     pub var_type: i32,
     pub offset: i32,
@@ -111,7 +120,7 @@ impl Header {
 #[derive(Debug, Clone)]
 pub struct FrameData {
     pub header: Header,
-    pub var_headers: Vec<VarHeader>,
+    pub var_headers: Option<Vec<VarHeader>>,
     pub session_info: Option<Vec<u8>>,
     pub raw_data: Vec<u8>,
 }
@@ -120,21 +129,32 @@ impl FrameData {
     pub fn serialize(&self) -> Option<Vec<u8>> {
         let mut buffer = Vec::new();
 
+        // frame header: type byte + reserved padding
+        let frame_type = if self.var_headers.is_some() {
+            FRAME_TYPE_FULL
+        } else {
+            FRAME_TYPE_DATA_ONLY
+        };
+        buffer.push(frame_type);
+        buffer.extend_from_slice(&[0u8; FRAME_HEADER_RESERVED]);
+
         // main header
         let header_bytes = unsafe {
             std::slice::from_raw_parts(&self.header as *const _ as *const u8, Header::SIZE)
         };
         buffer.extend_from_slice(header_bytes);
 
-        // var headers
-        for var_header in &self.var_headers {
-            let vh_bytes = unsafe {
-                std::slice::from_raw_parts(
-                    var_header as *const _ as *const u8,
-                    std::mem::size_of::<VarHeader>(),
-                )
-            };
-            buffer.extend_from_slice(vh_bytes);
+        // var headers — only written for FRAME_TYPE_FULL; count is implicit via header.num_vars
+        if let Some(headers) = &self.var_headers {
+            for vh in headers {
+                let vh_bytes = unsafe {
+                    std::slice::from_raw_parts(
+                        vh as *const _ as *const u8,
+                        std::mem::size_of::<VarHeader>(),
+                    )
+                };
+                buffer.extend_from_slice(vh_bytes);
+            }
         }
 
         // session info length and data
@@ -148,7 +168,7 @@ impl FrameData {
             }
         }
 
-        // Write raw data length and data
+        // raw data length and data
         buffer
             .write_u64::<LittleEndian>(self.raw_data.len() as u64)
             .ok()?;
@@ -157,24 +177,46 @@ impl FrameData {
         Some(buffer)
     }
 
-    pub fn deserialize(bytes: &[u8]) -> io::Result<Self> {
+    pub fn deserialize(bytes: &[u8], payload_version: i32) -> io::Result<Self> {
         let mut cursor = Cursor::new(bytes);
 
-        // header
+        // frame header (v2+): type byte + reserved padding
+        let frame_type = if payload_version >= 2 {
+            let ft = cursor.read_u8()?;
+            if ft != FRAME_TYPE_FULL && ft != FRAME_TYPE_DATA_ONLY {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("Unknown iRacing frame type: {ft:#04x}"),
+                ));
+            }
+            let mut reserved = [0u8; FRAME_HEADER_RESERVED];
+            cursor.read_exact(&mut reserved)?;
+            ft
+        } else {
+            FRAME_TYPE_FULL
+        };
+
+        // irsdk header
         let mut header_bytes = [0u8; Header::SIZE];
         cursor.read_exact(&mut header_bytes)?;
-        let header: Header = unsafe { std::ptr::read(header_bytes.as_ptr() as *const Header) };
+        let header: Header =
+            unsafe { std::ptr::read_unaligned(header_bytes.as_ptr() as *const Header) };
 
-        // var headers
+        // var headers — count is always header.num_vars; frame type determines presence
         let var_header_size = std::mem::size_of::<VarHeader>();
-        let mut var_headers = Vec::with_capacity(header.num_vars as usize);
-        for _ in 0..header.num_vars {
-            let mut vh_bytes = vec![0u8; var_header_size];
-            cursor.read_exact(&mut vh_bytes)?;
-            let var_header: VarHeader =
-                unsafe { std::ptr::read(vh_bytes.as_ptr() as *const VarHeader) };
-            var_headers.push(var_header);
-        }
+        let var_headers: Option<Vec<VarHeader>> = if frame_type == FRAME_TYPE_FULL {
+            let mut headers = Vec::with_capacity(header.num_vars as usize);
+            for _ in 0..header.num_vars {
+                let mut vh_bytes = vec![0u8; var_header_size];
+                cursor.read_exact(&mut vh_bytes)?;
+                let vh: VarHeader =
+                    unsafe { std::ptr::read_unaligned(vh_bytes.as_ptr() as *const VarHeader) };
+                headers.push(vh);
+            }
+            Some(headers)
+        } else {
+            None
+        };
 
         // session info
         let session_info_len = cursor.read_u64::<LittleEndian>()? as usize;
@@ -278,7 +320,7 @@ mod tests {
                     VarBuf::default(),
                 ],
             },
-            var_headers: vec![
+            var_headers: Some(vec![
                 VarHeader {
                     var_type: 1,
                     offset: 10,
@@ -299,7 +341,7 @@ mod tests {
                     desc: pad::<IRSDK_MAX_DESC>(b"TestDesc2"),
                     unit: pad::<IRSDK_MAX_STRING>(b"TestUnit2"),
                 },
-            ],
+            ]),
             session_info: Some(b"SessionInfo:\n  Type: Race\n".to_vec()),
             raw_data: vec![1, 2, 3, 4, 5, 6, 7, 8],
         };
@@ -307,11 +349,11 @@ mod tests {
         let serialized = frame.serialize();
         assert!(serialized.is_some());
         let serialized = serialized.unwrap();
-        let deserialized = FrameData::deserialize(&serialized).unwrap();
+        let deserialized = FrameData::deserialize(&serialized, 2).unwrap();
 
         assert_eq!(deserialized.header.ver, frame.header.ver);
         assert_eq!(deserialized.header.status, frame.header.status);
-        assert_eq!(deserialized.var_headers.len(), frame.var_headers.len());
+        assert_eq!(deserialized.var_headers, frame.var_headers);
         assert_eq!(deserialized.session_info, frame.session_info);
         assert_eq!(deserialized.raw_data, frame.raw_data);
     }
@@ -342,7 +384,7 @@ mod tests {
                     VarBuf::default(),
                 ],
             },
-            var_headers: vec![
+            var_headers: Some(vec![
                 VarHeader {
                     var_type: 1,
                     offset: 10,
@@ -363,7 +405,7 @@ mod tests {
                     desc: pad::<IRSDK_MAX_DESC>(b"TestDesc2"),
                     unit: pad::<IRSDK_MAX_STRING>(b"TestUnit2"),
                 },
-            ],
+            ]),
             session_info: None,
             raw_data: vec![1, 2, 3, 4, 5, 6, 7, 8],
         };
@@ -371,12 +413,125 @@ mod tests {
         let serialized = frame.serialize();
         assert!(serialized.is_some());
         let serialized = serialized.unwrap();
-        let deserialized = FrameData::deserialize(&serialized).unwrap();
+        let deserialized = FrameData::deserialize(&serialized, 2).unwrap();
 
         assert_eq!(deserialized.header.ver, frame.header.ver);
         assert_eq!(deserialized.header.status, frame.header.status);
-        assert_eq!(deserialized.var_headers.len(), frame.var_headers.len());
+        assert_eq!(deserialized.var_headers, frame.var_headers);
         assert_eq!(deserialized.session_info, frame.session_info);
         assert_eq!(deserialized.raw_data, frame.raw_data);
+    }
+
+    #[test]
+    fn test_serialize_frame_data_no_var_headers() {
+        let frame = FrameData {
+            header: Header {
+                ver: 2,
+                status: 1,
+                tick_rate: 60,
+                session_info_update: 5,
+                session_info_len: 100,
+                session_info_offset: 1000,
+                num_vars: 2,
+                var_header_offset: 144,
+                num_buf: 3,
+                buf_len: 512,
+                pad1: [0; 2],
+                var_buf: [
+                    VarBuf {
+                        tick_count: 100,
+                        buf_offset: 2000,
+                        pad: [0; 2],
+                    },
+                    VarBuf::default(),
+                    VarBuf::default(),
+                    VarBuf::default(),
+                ],
+            },
+            var_headers: None,
+            session_info: Some(b"SessionInfo:\n  Type: Race\n".to_vec()),
+            raw_data: vec![1, 2, 3, 4, 5, 6, 7, 8],
+        };
+
+        let serialized = frame.serialize();
+        assert!(serialized.is_some());
+        let serialized = serialized.unwrap();
+        let deserialized = FrameData::deserialize(&serialized, 2).unwrap();
+
+        assert_eq!(deserialized.header.ver, frame.header.ver);
+        assert_eq!(deserialized.header.status, frame.header.status);
+        assert_eq!(deserialized.var_headers, None);
+        assert_eq!(deserialized.session_info, frame.session_info);
+        assert_eq!(deserialized.raw_data, frame.raw_data);
+    }
+
+    #[test]
+    fn test_deserialize_v1_backward_compat() {
+        // Simulate a v1 iRacing recording: Header + VarHeaders (always present, no 16-byte
+        // frame prefix) + session_info + raw_data. Verifies that payload_version=1 always
+        // yields Some(var_headers).
+        let header = Header {
+            ver: 2,
+            status: 1,
+            tick_rate: 60,
+            session_info_update: 0,
+            session_info_len: 0,
+            session_info_offset: 0,
+            num_vars: 1,
+            var_header_offset: 144,
+            num_buf: 1,
+            buf_len: 8,
+            pad1: [0; 2],
+            var_buf: [
+                VarBuf {
+                    tick_count: 42,
+                    buf_offset: 0,
+                    pad: [0; 2],
+                },
+                VarBuf::default(),
+                VarBuf::default(),
+                VarBuf::default(),
+            ],
+        };
+        let var_header = VarHeader {
+            var_type: 3,
+            offset: 0,
+            count: 1,
+            count_as_time: 0,
+            pad: [0; 3],
+            name: pad::<IRSDK_MAX_STRING>(b"Speed"),
+            desc: pad::<IRSDK_MAX_DESC>(b"Vehicle speed"),
+            unit: pad::<IRSDK_MAX_STRING>(b"m/s"),
+        };
+        let raw_data = vec![0xDE, 0xAD, 0xBE, 0xEF];
+
+        let mut bytes = Vec::new();
+        unsafe {
+            bytes.extend_from_slice(std::slice::from_raw_parts(
+                &header as *const Header as *const u8,
+                Header::SIZE,
+            ));
+            bytes.extend_from_slice(std::slice::from_raw_parts(
+                &var_header as *const VarHeader as *const u8,
+                std::mem::size_of::<VarHeader>(),
+            ));
+        }
+        bytes.extend_from_slice(&0u64.to_le_bytes()); // session_info_len = 0
+        bytes.extend_from_slice(&(raw_data.len() as u64).to_le_bytes());
+        bytes.extend_from_slice(&raw_data);
+
+        let deserialized = FrameData::deserialize(&bytes, 1).unwrap();
+
+        assert_eq!(deserialized.header.ver, header.ver);
+        assert_eq!(deserialized.header.tick_rate, header.tick_rate);
+        assert_eq!(deserialized.header.var_buf[0].tick_count, 42);
+        let var_headers = deserialized
+            .var_headers
+            .expect("v1 frames always have var_headers");
+        assert_eq!(var_headers.len(), 1);
+        assert_eq!(var_headers[0].var_type, var_header.var_type);
+        assert_eq!(var_headers[0].name, pad::<IRSDK_MAX_STRING>(b"Speed"));
+        assert_eq!(deserialized.session_info, None);
+        assert_eq!(deserialized.raw_data, raw_data);
     }
 }

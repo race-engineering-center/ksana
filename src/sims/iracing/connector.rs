@@ -1,6 +1,6 @@
-use super::data::{FrameData, Header, IRSDK_MEMMAPFILENAME, VarHeader};
-use crate::Connector;
+use super::data::{CURRENT_PAYLOAD_VERSION, FrameData, Header, IRSDK_MEMMAPFILENAME, VarHeader};
 use crate::shm::SharedMemoryReader;
+use crate::{Connector, SimInfo};
 
 const DEFAULT_SHM_SIZE: usize = 1024 * 1024 * 32;
 
@@ -8,6 +8,7 @@ pub struct IRacingConnector {
     shm: Option<SharedMemoryReader>,
     last_session_info_update: i32,
     last_tick_count: i32,
+    last_var_headers: Vec<VarHeader>,
 }
 
 impl IRacingConnector {
@@ -16,6 +17,7 @@ impl IRacingConnector {
             shm: None,
             last_session_info_update: 0,
             last_tick_count: 0,
+            last_var_headers: vec![],
         }
     }
 
@@ -97,6 +99,7 @@ impl Connector for IRacingConnector {
                     self.shm = Some(shm);
                     self.last_session_info_update = 0;
                     self.last_tick_count = 0;
+                    self.last_var_headers = vec![];
                     true
                 } else {
                     false
@@ -110,6 +113,7 @@ impl Connector for IRacingConnector {
         self.shm = None;
         self.last_session_info_update = 0;
         self.last_tick_count = 0;
+        self.last_var_headers = vec![];
     }
 
     fn update(&mut self) -> Option<Vec<u8>> {
@@ -128,8 +132,14 @@ impl Connector for IRacingConnector {
         }
         self.last_tick_count = current_tick;
 
-        // var headers
-        let var_headers = self.read_var_headers(&header);
+        // var headers — only include when changed
+        let new_var_headers = self.read_var_headers(&header);
+        let var_headers = if new_var_headers != self.last_var_headers {
+            self.last_var_headers = new_var_headers.clone();
+            Some(new_var_headers)
+        } else {
+            None
+        };
 
         // session info
         let session_info = if header.session_info_update != self.last_session_info_update {
@@ -153,7 +163,10 @@ impl Connector for IRacingConnector {
         frame.serialize()
     }
 
-    fn id(&self) -> [u8; 4] {
-        *b"irac"
+    fn info(&self) -> SimInfo {
+        SimInfo {
+            id: *b"irac",
+            payload_version: CURRENT_PAYLOAD_VERSION,
+        }
     }
 }

@@ -1,9 +1,9 @@
-use super::data::{AC_OFF, FrameData, StaticPage};
+use super::data::{AC_OFF, CURRENT_PAYLOAD_VERSION, FrameData, StaticPage};
 use super::shm::{AC_GRAPHICS_SHM, AC_PHYSICS_SHM, AC_STATIC_SHM};
 use super::shmio::AssettoCorsaSharedMemoryReader;
-use crate::Connector;
 use crate::sims::assettocorsa::data::SHM_SIZE;
 use crate::sims::assettocorsa::shmio::SharedMemoryRegionInfo;
+use crate::{Connector, SimInfo};
 
 pub struct AssettoCorsaConnector {
     reader: Option<AssettoCorsaSharedMemoryReader>,
@@ -79,8 +79,11 @@ impl Connector for AssettoCorsaConnector {
         Some(frame.serialize())
     }
 
-    fn id(&self) -> [u8; 4] {
-        *b"acsa"
+    fn info(&self) -> SimInfo {
+        SimInfo {
+            id: *b"acsa",
+            payload_version: CURRENT_PAYLOAD_VERSION,
+        }
     }
 }
 

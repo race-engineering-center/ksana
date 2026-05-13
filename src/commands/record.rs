@@ -200,9 +200,9 @@ pub fn run(
         return Ok(RecordingFinished::QuitRequested);
     };
 
-    let id = connector.id();
+    let info = connector.info();
 
-    let sim_name = std::str::from_utf8(&id).map_err(|_| Error::InvalidSimId)?;
+    let sim_name = std::str::from_utf8(&info.id).map_err(|_| Error::InvalidSimId)?;
     println!("Connected to: {}", sim_name);
 
     let filename = generate_filename(sim_name);
@@ -214,7 +214,7 @@ pub fn run(
     };
 
     let writer = BufWriter::new(file);
-    let mut saver = match Saver::new(writer, fps as i32, id) {
+    let mut saver = match Saver::new(writer, fps as i32, info) {
         Ok(s) => s,
         Err(e) => {
             return Err(Error::from(RecordError::SaverInitError(e)));

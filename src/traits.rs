@@ -4,15 +4,20 @@ pub trait Sleeper {
     fn sleep_ms(&self, ms: u64);
 }
 
+#[derive(Debug, Copy, Clone)]
+pub struct SimInfo {
+    pub id: [u8; 4],
+    pub payload_version: i32,
+}
+
 pub trait Connector {
     fn connect(&mut self) -> bool;
     fn disconnect(&mut self);
     fn update(&mut self) -> Option<Vec<u8>>;
-    fn id(&self) -> [u8; 4];
+    fn info(&self) -> SimInfo;
 }
 
 pub trait Player {
-    fn initialize(&mut self) -> anyhow::Result<()>;
     fn update(&mut self, data: &[u8]) -> anyhow::Result<()>;
     fn stop(&mut self);
 }
@@ -28,8 +33,8 @@ pub enum PlayError {
     #[error("Unknown simulator ID: {0}")]
     UnknownSimError(String),
 
-    #[error("Failed to initialize player: {0}")]
-    FailedToInitializePlayer(anyhow::Error),
+    #[error("Failed to create player: {0}")]
+    FailedToCreatePlayer(anyhow::Error),
 
     #[error("Failed to load frame: {0}")]
     FailedToLoadFrame(IOError),
