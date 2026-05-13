@@ -8,7 +8,7 @@ use windows::Win32::System::Memory::{
     CreateFileMappingA, FILE_MAP_READ, FILE_MAP_WRITE, MEMORY_MAPPED_VIEW_ADDRESS, MapViewOfFile,
     OpenFileMappingA, PAGE_READWRITE, UnmapViewOfFile,
 };
-use windows::Win32::System::Threading::CreateEventA;
+use windows::Win32::System::Threading::{CreateEventA, SetEvent};
 use windows::core::PCSTR;
 
 #[allow(clippy::enum_variant_names)]
@@ -180,7 +180,7 @@ impl EventHandle {
         let handle = unsafe {
             CreateEventA(
                 None,
-                false, // manual reset
+                false, // auto-reset — resets after releasing one waiter per signal
                 false, // initial state
                 PCSTR::from_raw(name_cstr.as_ptr() as *const u8),
             )
@@ -190,6 +190,10 @@ impl EventHandle {
         })?;
 
         Ok(Self { handle })
+    }
+
+    pub fn signal(&self) {
+        unsafe { SetEvent(self.handle).ok() };
     }
 }
 

@@ -7,7 +7,6 @@ const IRSDK_DATAVALIDEVENTNAME: &str = "Local\\IRSDKDataValidEvent";
 
 pub struct IRacingPlayer {
     shm: SharedMemoryWriter,
-    #[allow(dead_code)] // held to keep the Win32 event alive until drop
     event: EventHandle,
     payload_version: i32,
 }
@@ -32,13 +31,6 @@ impl Player for IRacingPlayer {
         let buf_offset = frame.header.var_buf[latest_idx].buf_offset as usize;
 
         unsafe {
-            // header
-            let header_bytes = std::slice::from_raw_parts(
-                &frame.header as *const Header as *const u8,
-                Header::SIZE,
-            );
-            self.shm.write(0, header_bytes);
-
             // raw telemetry data
             self.shm.write(buf_offset, &frame.raw_data);
 
@@ -61,7 +53,16 @@ impl Player for IRacingPlayer {
                 let offset = frame.header.session_info_offset as usize;
                 self.shm.write(offset, session_info);
             }
+
+            // header last — advancing tick_count is the signal to clients that new data is ready
+            let header_bytes = std::slice::from_raw_parts(
+                &frame.header as *const Header as *const u8,
+                Header::SIZE,
+            );
+            self.shm.write(0, header_bytes);
         }
+
+        self.event.signal();
 
         Ok(())
     }
