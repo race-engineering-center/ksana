@@ -458,4 +458,74 @@ mod tests {
         assert_eq!(deserialized.session_info, frame.session_info);
         assert_eq!(deserialized.raw_data, frame.raw_data);
     }
+
+    #[test]
+    fn test_deserialize_v1_backward_compat() {
+        // Simulate a v1 iRacing recording: Header + VarHeaders (always present, no 16-byte
+        // frame prefix) + session_info + raw_data. Verifies that payload_version=1 always
+        // yields Some(var_headers).
+        let header = Header {
+            ver: 2,
+            status: 1,
+            tick_rate: 60,
+            session_info_update: 0,
+            session_info_len: 0,
+            session_info_offset: 0,
+            num_vars: 1,
+            var_header_offset: 144,
+            num_buf: 1,
+            buf_len: 8,
+            pad1: [0; 2],
+            var_buf: [
+                VarBuf {
+                    tick_count: 42,
+                    buf_offset: 0,
+                    pad: [0; 2],
+                },
+                VarBuf::default(),
+                VarBuf::default(),
+                VarBuf::default(),
+            ],
+        };
+        let var_header = VarHeader {
+            var_type: 3,
+            offset: 0,
+            count: 1,
+            count_as_time: 0,
+            pad: [0; 3],
+            name: pad::<IRSDK_MAX_STRING>(b"Speed"),
+            desc: pad::<IRSDK_MAX_DESC>(b"Vehicle speed"),
+            unit: pad::<IRSDK_MAX_STRING>(b"m/s"),
+        };
+        let raw_data = vec![0xDE, 0xAD, 0xBE, 0xEF];
+
+        let mut bytes = Vec::new();
+        unsafe {
+            bytes.extend_from_slice(std::slice::from_raw_parts(
+                &header as *const Header as *const u8,
+                Header::SIZE,
+            ));
+            bytes.extend_from_slice(std::slice::from_raw_parts(
+                &var_header as *const VarHeader as *const u8,
+                std::mem::size_of::<VarHeader>(),
+            ));
+        }
+        bytes.extend_from_slice(&0u64.to_le_bytes()); // session_info_len = 0
+        bytes.extend_from_slice(&(raw_data.len() as u64).to_le_bytes());
+        bytes.extend_from_slice(&raw_data);
+
+        let deserialized = FrameData::deserialize(&bytes, 1).unwrap();
+
+        assert_eq!(deserialized.header.ver, header.ver);
+        assert_eq!(deserialized.header.tick_rate, header.tick_rate);
+        assert_eq!(deserialized.header.var_buf[0].tick_count, 42);
+        let var_headers = deserialized
+            .var_headers
+            .expect("v1 frames always have var_headers");
+        assert_eq!(var_headers.len(), 1);
+        assert_eq!(var_headers[0].var_type, var_header.var_type);
+        assert_eq!(var_headers[0].name, pad::<IRSDK_MAX_STRING>(b"Speed"));
+        assert_eq!(deserialized.session_info, None);
+        assert_eq!(deserialized.raw_data, raw_data);
+    }
 }
