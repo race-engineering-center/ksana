@@ -1,12 +1,14 @@
-use super::data::{AC_OFF, CURRENT_PAYLOAD_VERSION, FrameData, StaticPage};
+use super::data::{CURRENT_PAYLOAD_VERSION, FrameData, StaticPage};
 use super::shm::{AC_GRAPHICS_SHM, AC_PHYSICS_SHM, AC_STATIC_SHM};
-use super::shmio::AssettoCorsaSharedMemoryReader;
+use super::shmio::SharedMemoryReader;
+
+use crate::sims::ac::data::AC_OFF;
+use crate::sims::ac::shmio::SharedMemoryRegionInfo;
 use crate::sims::assettocorsa::data::SHM_SIZE;
-use crate::sims::assettocorsa::shmio::SharedMemoryRegionInfo;
 use crate::{Connector, SimInfo};
 
 pub struct AssettoCorsaConnector {
-    reader: Option<AssettoCorsaSharedMemoryReader>,
+    reader: Option<SharedMemoryReader>,
     prev_statics: Option<StaticPage>,
 }
 
@@ -27,7 +29,7 @@ impl Default for AssettoCorsaConnector {
 
 impl Connector for AssettoCorsaConnector {
     fn connect(&mut self) -> bool {
-        let reader = match AssettoCorsaSharedMemoryReader::new(
+        let reader = match SharedMemoryReader::new(
             SharedMemoryRegionInfo::new(AC_GRAPHICS_SHM, SHM_SIZE),
             SharedMemoryRegionInfo::new(AC_PHYSICS_SHM, SHM_SIZE),
             SharedMemoryRegionInfo::new(AC_STATIC_SHM, SHM_SIZE),

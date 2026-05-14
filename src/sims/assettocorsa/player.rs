@@ -1,8 +1,8 @@
 use super::shm::{AC_GRAPHICS_SHM, AC_PHYSICS_SHM, AC_STATIC_SHM};
-use super::shmio::AssettoCorsaSharedMemoryWriter;
+use super::shmio::SharedMemoryWriter;
 use crate::Player;
+use crate::sims::ac::shmio::SharedMemoryRegionInfo;
 use crate::sims::assettocorsa::data::SHM_SIZE;
-use crate::sims::assettocorsa::shmio::SharedMemoryRegionInfo;
 
 #[derive(thiserror::Error, Debug)]
 enum AssettoCorsaError {
@@ -11,13 +11,13 @@ enum AssettoCorsaError {
 }
 
 pub struct AssettoCorsaPlayer {
-    writer: AssettoCorsaSharedMemoryWriter,
+    writer: SharedMemoryWriter,
     payload_version: i32,
 }
 
 impl AssettoCorsaPlayer {
     pub fn new(payload_version: i32) -> anyhow::Result<Self> {
-        let writer = AssettoCorsaSharedMemoryWriter::new(
+        let writer = SharedMemoryWriter::new(
             SharedMemoryRegionInfo::new(AC_GRAPHICS_SHM, SHM_SIZE),
             SharedMemoryRegionInfo::new(AC_PHYSICS_SHM, SHM_SIZE),
             SharedMemoryRegionInfo::new(AC_STATIC_SHM, SHM_SIZE),
