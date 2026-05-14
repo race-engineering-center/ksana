@@ -7,7 +7,10 @@ pub struct Player<W: PageWriter> {
 
 impl<W: PageWriter> Player<W> {
     pub fn from_writer(writer: W, payload_version: i32) -> Self {
-        Self { writer, payload_version }
+        Self {
+            writer,
+            payload_version,
+        }
     }
 }
 
