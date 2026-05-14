@@ -58,11 +58,17 @@ impl<const PADDING: usize> SimPage for PhysicsPage<PADDING> {}
 impl<const PADDING: usize> SimPage for GraphicsPage<PADDING> {}
 impl<const PADDING: usize> SimPage for StaticPage<PADDING> {}
 
-pub trait GraphicsLike: SimPage {}
+pub trait GraphicsLike: SimPage {
+    fn status(&self) -> i32;
+}
 pub trait PhysicsLike: SimPage {}
-pub trait StaticLike: SimPage {}
+pub trait StaticLike: SimPage + PartialEq {}
 
-impl<const PADDING: usize> GraphicsLike for GraphicsPage<PADDING> {}
+impl<const PADDING: usize> GraphicsLike for GraphicsPage<PADDING> {
+    fn status(&self) -> i32 {
+        self.status
+    }
+}
 impl<const PADDING: usize> PhysicsLike for PhysicsPage<PADDING> {}
 impl<const PADDING: usize> StaticLike for StaticPage<PADDING> {}
 

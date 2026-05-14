@@ -6,18 +6,18 @@ use crate::sims::ac::data::FrameData;
 
 use super::data::{GraphicsLike, PhysicsLike, StaticLike};
 
-pub struct SharedMemoryRegionInfo {
-    name: String,
-    size: usize,
-}
+pub trait PageReader {
+    type Graphics: GraphicsLike;
+    type Physics: PhysicsLike;
+    type Static: StaticLike;
 
-impl SharedMemoryRegionInfo {
-    pub fn new(name: &str, size: usize) -> Self {
-        Self {
-            name: name.to_string(),
-            size,
-        }
-    }
+    fn new(graphics_name: &str, physics_name: &str, static_name: &str) -> Option<Self>
+    where
+        Self: Sized;
+
+    fn read_graphics(&self) -> Option<Self::Graphics>;
+    fn read_physics(&self) -> Option<Self::Physics>;
+    fn read_statics(&self) -> Option<Self::Static>;
 }
 
 pub struct SharedMemoryReader<G: GraphicsLike, P: PhysicsLike, S: StaticLike> {
@@ -29,15 +29,15 @@ pub struct SharedMemoryReader<G: GraphicsLike, P: PhysicsLike, S: StaticLike> {
     _phantom_s: PhantomData<S>,
 }
 
-impl<G: GraphicsLike, P: PhysicsLike, S: StaticLike> SharedMemoryReader<G, P, S> {
-    pub fn new(
-        graphics_info: SharedMemoryRegionInfo,
-        physics_info: SharedMemoryRegionInfo,
-        statics_info: SharedMemoryRegionInfo,
-    ) -> Option<Self> {
-        let graphics = ShmReader::open(&graphics_info.name, graphics_info.size).ok()?;
-        let physics = ShmReader::open(&physics_info.name, physics_info.size).ok()?;
-        let statics = ShmReader::open(&statics_info.name, statics_info.size).ok()?;
+impl<G: GraphicsLike, P: PhysicsLike, S: StaticLike> PageReader for SharedMemoryReader<G, P, S> {
+    type Graphics = G;
+    type Physics = P;
+    type Static = S;
+
+    fn new(graphics_name: &str, physics_name: &str, static_name: &str) -> Option<Self> {
+        let graphics = ShmReader::open(graphics_name, size_of::<G>()).ok()?;
+        let physics = ShmReader::open(physics_name, size_of::<P>()).ok()?;
+        let statics = ShmReader::open(static_name, size_of::<S>()).ok()?;
 
         Some(Self {
             graphics_shm: Some(graphics),
@@ -49,7 +49,7 @@ impl<G: GraphicsLike, P: PhysicsLike, S: StaticLike> SharedMemoryReader<G, P, S>
         })
     }
 
-    pub fn read_graphics(&self) -> Option<G> {
+    fn read_graphics(&self) -> Option<G> {
         let shm = self.graphics_shm.as_ref()?;
         unsafe {
             let ptr = shm.as_ptr() as *const G;
@@ -57,7 +57,7 @@ impl<G: GraphicsLike, P: PhysicsLike, S: StaticLike> SharedMemoryReader<G, P, S>
         }
     }
 
-    pub fn read_physics(&self) -> Option<P> {
+    fn read_physics(&self) -> Option<P> {
         let shm = self.physics_shm.as_ref()?;
         unsafe {
             let ptr = shm.as_ptr() as *const P;
@@ -65,7 +65,7 @@ impl<G: GraphicsLike, P: PhysicsLike, S: StaticLike> SharedMemoryReader<G, P, S>
         }
     }
 
-    pub fn read_statics(&self) -> Option<S> {
+    fn read_statics(&self) -> Option<S> {
         let shm = self.static_shm.as_ref()?;
         unsafe {
             let ptr = shm.as_ptr() as *const S;
@@ -84,14 +84,10 @@ pub struct SharedMemoryWriter<G: GraphicsLike, P: PhysicsLike, S: StaticLike> {
 }
 
 impl<G: GraphicsLike, P: PhysicsLike, S: StaticLike> SharedMemoryWriter<G, P, S> {
-    pub fn new(
-        graphics_info: SharedMemoryRegionInfo,
-        physics_info: SharedMemoryRegionInfo,
-        statics_info: SharedMemoryRegionInfo,
-    ) -> Option<Self> {
-        let graphics = ShmWriter::create(&graphics_info.name, graphics_info.size).ok()?;
-        let physics = ShmWriter::create(&physics_info.name, physics_info.size).ok()?;
-        let statics = ShmWriter::create(&statics_info.name, statics_info.size).ok()?;
+    pub fn new(graphics_name: &str, physics_name: &str, static_name: &str) -> Option<Self> {
+        let graphics = ShmWriter::create(graphics_name, size_of::<G>()).ok()?;
+        let physics = ShmWriter::create(physics_name, size_of::<P>()).ok()?;
+        let statics = ShmWriter::create(static_name, size_of::<S>()).ok()?;
 
         Some(Self {
             graphics_shm: Some(graphics),
@@ -157,6 +153,21 @@ impl<G: GraphicsLike, P: PhysicsLike, S: StaticLike> SharedMemoryWriter<G, P, S>
     }
 }
 
+pub trait PageWriter {
+    fn update(&mut self, data: &[u8], payload_version: i32) -> anyhow::Result<()>;
+    fn stop(&mut self);
+}
+
+impl<G: GraphicsLike, P: PhysicsLike, S: StaticLike> PageWriter for SharedMemoryWriter<G, P, S> {
+    fn update(&mut self, data: &[u8], payload_version: i32) -> anyhow::Result<()> {
+        self.update(data, payload_version)
+    }
+
+    fn stop(&mut self) {
+        self.stop()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -182,41 +193,21 @@ mod tests {
     #[test]
     #[cfg(not(miri))]
     fn test_read_write() {
-        use crate::sims::ac::shmio::{
-            SharedMemoryReader, SharedMemoryRegionInfo, SharedMemoryWriter,
-        };
+        use crate::sims::ac::shmio::{PageReader, SharedMemoryReader, SharedMemoryWriter};
 
         let id = generate_id().to_string();
 
         let mut writer = SharedMemoryWriter::<TestGraphics, TestPhysics, TestStatic>::new(
-            SharedMemoryRegionInfo {
-                name: format!("{}-graphics", id),
-                size: 2048,
-            },
-            SharedMemoryRegionInfo {
-                name: format!("{}-physics", id),
-                size: 1024,
-            },
-            SharedMemoryRegionInfo {
-                name: format!("{}-static", id),
-                size: 2048,
-            },
+            &format!("{}-graphics", id),
+            &format!("{}-physics", id),
+            &format!("{}-static", id),
         )
         .unwrap();
 
         let reader = SharedMemoryReader::<TestGraphics, TestPhysics, TestStatic>::new(
-            SharedMemoryRegionInfo {
-                name: format!("{}-graphics", id),
-                size: 2048,
-            },
-            SharedMemoryRegionInfo {
-                name: format!("{}-physics", id),
-                size: 1024,
-            },
-            SharedMemoryRegionInfo {
-                name: format!("{}-static", id),
-                size: 2048,
-            },
+            &format!("{}-graphics", id),
+            &format!("{}-physics", id),
+            &format!("{}-static", id),
         )
         .unwrap();
 

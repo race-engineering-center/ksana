@@ -4,13 +4,9 @@ use crate::sims::ac::data::StaticPage as AcStaticPage;
 
 pub const CURRENT_PAYLOAD_VERSION: i32 = 2;
 
-pub const SHM_SIZE: usize = 2048;
-
 pub type PhysicsPage = AcPhysicsPage<1024>; // padded with some headroom, real sizeof in AC is 568 bytes, ACC 800 bytes
 pub type GraphicsPage = AcGraphicsPage<2040>; // 8 bytes for packet_id and status
 pub type StaticPage = AcStaticPage<2048>; // padded with some headroom, real sizeof in AC is 1044, ACC 1336
-
-pub type FrameData = crate::sims::ac::data::FrameData<GraphicsPage, PhysicsPage, StaticPage>;
 
 #[cfg(test)]
 mod tests {
