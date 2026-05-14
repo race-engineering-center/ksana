@@ -14,7 +14,9 @@ pub struct PhysicsPage<const PADDING: usize> {
 
 impl<const PADDING: usize> Default for PhysicsPage<PADDING> {
     fn default() -> Self {
-        unsafe { std::mem::zeroed() }
+        Self {
+            content: [0; PADDING],
+        }
     }
 }
 
@@ -28,7 +30,11 @@ pub struct GraphicsPage<const PADDING: usize> {
 
 impl<const PADDING: usize> Default for GraphicsPage<PADDING> {
     fn default() -> Self {
-        unsafe { std::mem::zeroed() }
+        Self {
+            packet_id: 0,
+            status: 0,
+            content: [0; PADDING],
+        }
     }
 }
 
@@ -42,7 +48,9 @@ pub struct StaticPage<const PADDING: usize> {
 
 impl<const PADDING: usize> Default for StaticPage<PADDING> {
     fn default() -> Self {
-        unsafe { std::mem::zeroed() }
+        Self {
+            content: [0; PADDING],
+        }
     }
 }
 

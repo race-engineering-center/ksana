@@ -6,18 +6,18 @@ use super::shmio::PageReader;
 pub struct Connector<R: PageReader> {
     reader: Option<R>,
     prev_statics: Option<R::Static>,
-    graphics_name: String,
-    physics_name: String,
-    static_name: String,
+    graphics_name: &'static str,
+    physics_name: &'static str,
+    static_name: &'static str,
     sim_id: [u8; 4],
     payload_version: i32,
 }
 
 impl<R: PageReader> Connector<R> {
     pub fn new(
-        graphics_name: String,
-        physics_name: String,
-        static_name: String,
+        graphics_name: &'static str,
+        physics_name: &'static str,
+        static_name: &'static str,
         sim_id: [u8; 4],
         payload_version: i32,
     ) -> Self {
@@ -35,7 +35,7 @@ impl<R: PageReader> Connector<R> {
 
 impl<R: PageReader> crate::Connector for Connector<R> {
     fn connect(&mut self) -> bool {
-        let reader = match R::new(&self.graphics_name, &self.physics_name, &self.static_name) {
+        let reader = match R::new(self.graphics_name, self.physics_name, self.static_name) {
             Some(r) => r,
             None => return false,
         };

@@ -6,6 +6,7 @@ use crate::sims::ac::data::FrameData;
 
 use super::data::{GraphicsLike, PhysicsLike, StaticLike};
 
+// A helper trait to bind together the three shared memory pages and make Connector<R> generic
 pub trait PageReader {
     type Graphics: GraphicsLike;
     type Physics: PhysicsLike;
@@ -21,9 +22,9 @@ pub trait PageReader {
 }
 
 pub struct SharedMemoryReader<G: GraphicsLike, P: PhysicsLike, S: StaticLike> {
-    graphics_shm: Option<ShmReader>,
-    physics_shm: Option<ShmReader>,
-    static_shm: Option<ShmReader>,
+    graphics_shm: ShmReader,
+    physics_shm: ShmReader,
+    static_shm: ShmReader,
     _phantom_g: PhantomData<G>,
     _phantom_p: PhantomData<P>,
     _phantom_s: PhantomData<S>,
@@ -40,9 +41,9 @@ impl<G: GraphicsLike, P: PhysicsLike, S: StaticLike> PageReader for SharedMemory
         let statics = ShmReader::open(static_name, size_of::<S>()).ok()?;
 
         Some(Self {
-            graphics_shm: Some(graphics),
-            physics_shm: Some(physics),
-            static_shm: Some(statics),
+            graphics_shm: graphics,
+            physics_shm: physics,
+            static_shm: statics,
             _phantom_g: PhantomData,
             _phantom_p: PhantomData,
             _phantom_s: PhantomData,
@@ -50,25 +51,22 @@ impl<G: GraphicsLike, P: PhysicsLike, S: StaticLike> PageReader for SharedMemory
     }
 
     fn read_graphics(&self) -> Option<G> {
-        let shm = self.graphics_shm.as_ref()?;
         unsafe {
-            let ptr = shm.as_ptr() as *const G;
+            let ptr = self.graphics_shm.as_ptr() as *const G;
             Some(std::ptr::read(ptr))
         }
     }
 
     fn read_physics(&self) -> Option<P> {
-        let shm = self.physics_shm.as_ref()?;
         unsafe {
-            let ptr = shm.as_ptr() as *const P;
+            let ptr = self.physics_shm.as_ptr() as *const P;
             Some(std::ptr::read(ptr))
         }
     }
 
     fn read_statics(&self) -> Option<S> {
-        let shm = self.static_shm.as_ref()?;
         unsafe {
-            let ptr = shm.as_ptr() as *const S;
+            let ptr = self.static_shm.as_ptr() as *const S;
             Some(std::ptr::read(ptr))
         }
     }
