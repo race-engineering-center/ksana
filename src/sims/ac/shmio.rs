@@ -6,21 +6,6 @@ use crate::sims::ac::data::FrameData;
 
 use super::data::{GraphicsLike, PhysicsLike, StaticLike};
 
-// A helper trait to bind together the three shared memory pages and make Connector<R> generic
-pub trait PageReader {
-    type Graphics: GraphicsLike;
-    type Physics: PhysicsLike;
-    type Static: StaticLike;
-
-    fn new(graphics_name: &str, physics_name: &str, static_name: &str) -> Option<Self>
-    where
-        Self: Sized;
-
-    fn read_graphics(&self) -> Option<Self::Graphics>;
-    fn read_physics(&self) -> Option<Self::Physics>;
-    fn read_statics(&self) -> Option<Self::Static>;
-}
-
 pub struct SharedMemoryReader<G: GraphicsLike, P: PhysicsLike, S: StaticLike> {
     graphics_shm: ShmReader,
     physics_shm: ShmReader,
@@ -30,12 +15,8 @@ pub struct SharedMemoryReader<G: GraphicsLike, P: PhysicsLike, S: StaticLike> {
     _phantom_s: PhantomData<S>,
 }
 
-impl<G: GraphicsLike, P: PhysicsLike, S: StaticLike> PageReader for SharedMemoryReader<G, P, S> {
-    type Graphics = G;
-    type Physics = P;
-    type Static = S;
-
-    fn new(graphics_name: &str, physics_name: &str, static_name: &str) -> Option<Self> {
+impl<G: GraphicsLike, P: PhysicsLike, S: StaticLike> SharedMemoryReader<G, P, S> {
+    pub fn new(graphics_name: &str, physics_name: &str, static_name: &str) -> Option<Self> {
         let graphics = ShmReader::open(graphics_name, size_of::<G>()).ok()?;
         let physics = ShmReader::open(physics_name, size_of::<P>()).ok()?;
         let statics = ShmReader::open(static_name, size_of::<S>()).ok()?;
@@ -50,21 +31,21 @@ impl<G: GraphicsLike, P: PhysicsLike, S: StaticLike> PageReader for SharedMemory
         })
     }
 
-    fn read_graphics(&self) -> Option<G> {
+    pub fn read_graphics(&self) -> Option<G> {
         unsafe {
             let ptr = self.graphics_shm.as_ptr() as *const G;
             Some(std::ptr::read(ptr))
         }
     }
 
-    fn read_physics(&self) -> Option<P> {
+    pub fn read_physics(&self) -> Option<P> {
         unsafe {
             let ptr = self.physics_shm.as_ptr() as *const P;
             Some(std::ptr::read(ptr))
         }
     }
 
-    fn read_statics(&self) -> Option<S> {
+    pub fn read_statics(&self) -> Option<S> {
         unsafe {
             let ptr = self.static_shm.as_ptr() as *const S;
             Some(std::ptr::read(ptr))
@@ -151,20 +132,6 @@ impl<G: GraphicsLike, P: PhysicsLike, S: StaticLike> SharedMemoryWriter<G, P, S>
     }
 }
 
-pub trait PageWriter {
-    fn update(&mut self, data: &[u8], payload_version: i32) -> anyhow::Result<()>;
-    fn stop(&mut self);
-}
-
-impl<G: GraphicsLike, P: PhysicsLike, S: StaticLike> PageWriter for SharedMemoryWriter<G, P, S> {
-    fn update(&mut self, data: &[u8], payload_version: i32) -> anyhow::Result<()> {
-        self.update(data, payload_version)
-    }
-
-    fn stop(&mut self) {
-        self.stop()
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -191,7 +158,7 @@ mod tests {
     #[test]
     #[cfg(not(miri))]
     fn test_read_write() {
-        use crate::sims::ac::shmio::{PageReader, SharedMemoryReader, SharedMemoryWriter};
+        use crate::sims::ac::shmio::{SharedMemoryReader, SharedMemoryWriter};
 
         let id = generate_id().to_string();
 
