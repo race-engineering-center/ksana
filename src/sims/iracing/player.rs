@@ -71,7 +71,7 @@ impl Player for IRacingPlayer {
         unsafe {
             let status_offset = std::mem::offset_of!(Header, status);
             let disconnected: i32 = 0;
-            self.shm.write(status_offset, &disconnected.to_ne_bytes());
+            self.shm.write(status_offset, &disconnected.to_le_bytes());
         }
     }
 }

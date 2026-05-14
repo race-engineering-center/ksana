@@ -140,7 +140,7 @@ impl<G: GraphicsLike, P: PhysicsLike, S: StaticLike> SharedMemoryWriter<G, P, S>
             unsafe {
                 shm.write(
                     super::data::GRAPHICS_STATUS_OFFSET,
-                    &super::data::AC_OFF.to_ne_bytes(),
+                    &super::data::AC_OFF.to_le_bytes(),
                 );
             }
         }
