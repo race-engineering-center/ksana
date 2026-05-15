@@ -1,41 +1,18 @@
+use super::data::{GraphicsPage, PhysicsPage, StaticPage};
 use super::shm::{AC_GRAPHICS_SHM, AC_PHYSICS_SHM, AC_STATIC_SHM};
-use super::shmio::AssettoCorsaSharedMemoryWriter;
-use crate::Player;
-use crate::sims::assettocorsa::data::SHM_SIZE;
-use crate::sims::assettocorsa::shmio::SharedMemoryRegionInfo;
+use crate::sims::ac::player::Player as AcPlayer;
+use crate::sims::ac::shmio::SharedMemoryWriter;
 
-#[derive(thiserror::Error, Debug)]
-enum AssettoCorsaError {
-    #[error("Failed to initialize shared memory")]
-    InitializationFailed,
-}
-
-pub struct AssettoCorsaPlayer {
-    writer: AssettoCorsaSharedMemoryWriter,
-    payload_version: i32,
-}
+pub type AssettoCorsaPlayer = AcPlayer<GraphicsPage, PhysicsPage, StaticPage>;
 
 impl AssettoCorsaPlayer {
     pub fn new(payload_version: i32) -> anyhow::Result<Self> {
-        let writer = AssettoCorsaSharedMemoryWriter::new(
-            SharedMemoryRegionInfo::new(AC_GRAPHICS_SHM, SHM_SIZE),
-            SharedMemoryRegionInfo::new(AC_PHYSICS_SHM, SHM_SIZE),
-            SharedMemoryRegionInfo::new(AC_STATIC_SHM, SHM_SIZE),
+        let writer = SharedMemoryWriter::<GraphicsPage, PhysicsPage, StaticPage>::new(
+            AC_GRAPHICS_SHM,
+            AC_PHYSICS_SHM,
+            AC_STATIC_SHM,
         )
-        .ok_or(AssettoCorsaError::InitializationFailed)?;
-        Ok(Self {
-            writer,
-            payload_version,
-        })
-    }
-}
-
-impl Player for AssettoCorsaPlayer {
-    fn update(&mut self, data: &[u8]) -> anyhow::Result<()> {
-        self.writer.update(data, self.payload_version)
-    }
-
-    fn stop(&mut self) {
-        self.writer.stop()
+        .ok_or_else(|| anyhow::anyhow!("Failed to initialize shared memory"))?;
+        Ok(Self::from_writer(writer, payload_version))
     }
 }

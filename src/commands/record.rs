@@ -190,8 +190,8 @@ pub fn run(
     };
 
     let mut connectors: Vec<Box<dyn Connector>> = vec![
-        Box::new(IRacingConnector::new()),
-        Box::new(AssettoCorsaConnector::new()),
+        Box::new(IRacingConnector::default()),
+        Box::new(AssettoCorsaConnector::default()),
     ];
 
     let connector = wait_for_connection(&quit_flag, &mut connectors, &sleeper);
