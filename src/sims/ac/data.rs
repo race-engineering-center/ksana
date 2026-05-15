@@ -66,10 +66,13 @@ impl<const PADDING: usize> SimPage for PhysicsPage<PADDING> {}
 impl<const PADDING: usize> SimPage for GraphicsPage<PADDING> {}
 impl<const PADDING: usize> SimPage for StaticPage<PADDING> {}
 
+// We need to be able to read the AC status without knowing the exact page type
 pub trait GraphicsLike: SimPage {
     fn status(&self) -> i32;
 }
 pub trait PhysicsLike: SimPage {}
+
+// We need to be able to detect if the Static page changed, so need to be able to compare it
 pub trait StaticLike: SimPage + PartialEq {}
 
 impl<const PADDING: usize> GraphicsLike for GraphicsPage<PADDING> {
@@ -243,7 +246,7 @@ mod tests {
 
     type G = GraphicsPage<2040>;
     type P = PhysicsPage<1024>;
-    type S = StaticPage<1988>;
+    type S = StaticPage<512>;
     type Frame = FrameData<G, P, S>;
 
     #[test]

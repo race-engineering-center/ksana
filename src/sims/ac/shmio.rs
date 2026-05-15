@@ -31,24 +31,24 @@ impl<G: GraphicsLike, P: PhysicsLike, S: StaticLike> SharedMemoryReader<G, P, S>
         })
     }
 
-    pub fn read_graphics(&self) -> Option<G> {
+    pub fn read_graphics(&self) -> G {
         unsafe {
             let ptr = self.graphics_shm.as_ptr() as *const G;
-            Some(std::ptr::read(ptr))
+            std::ptr::read(ptr)
         }
     }
 
-    pub fn read_physics(&self) -> Option<P> {
+    pub fn read_physics(&self) -> P {
         unsafe {
             let ptr = self.physics_shm.as_ptr() as *const P;
-            Some(std::ptr::read(ptr))
+            std::ptr::read(ptr)
         }
     }
 
-    pub fn read_statics(&self) -> Option<S> {
+    pub fn read_statics(&self) -> S {
         unsafe {
             let ptr = self.static_shm.as_ptr() as *const S;
-            Some(std::ptr::read(ptr))
+            std::ptr::read(ptr)
         }
     }
 }
@@ -132,7 +132,6 @@ impl<G: GraphicsLike, P: PhysicsLike, S: StaticLike> SharedMemoryWriter<G, P, S>
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -186,9 +185,9 @@ mod tests {
         let data = frame.serialize();
         writer.update(&data, 2).unwrap();
 
-        let graphics = reader.read_graphics().unwrap();
-        let physics = reader.read_physics().unwrap();
-        let statics = reader.read_statics().unwrap();
+        let graphics = reader.read_graphics();
+        let physics = reader.read_physics();
+        let statics = reader.read_statics();
 
         assert_eq!(graphics, frame.graphics);
         assert_eq!(physics, frame.physics);
@@ -204,9 +203,9 @@ mod tests {
         let data = second_frame.serialize();
         writer.update(&data, 2).unwrap();
 
-        let graphics = reader.read_graphics().unwrap();
-        let physics = reader.read_physics().unwrap();
-        let statics = reader.read_statics().unwrap();
+        let graphics = reader.read_graphics();
+        let physics = reader.read_physics();
+        let statics = reader.read_statics();
 
         assert_eq!(graphics, second_frame.graphics);
         assert_eq!(physics, second_frame.physics);
@@ -215,7 +214,7 @@ mod tests {
         // stop the writer and verify that graphics sees AC_OFF
         writer.stop();
 
-        let graphics = reader.read_graphics().unwrap();
+        let graphics = reader.read_graphics();
         assert_eq!(graphics.status, AC_OFF);
     }
 }

@@ -43,13 +43,9 @@ impl<G: GraphicsLike, P: PhysicsLike, S: StaticLike> crate::Connector for Connec
             None => return false,
         };
 
-        match reader.read_graphics() {
-            Some(graphics) => {
-                if graphics.status() == AC_OFF {
-                    return false;
-                }
-            }
-            None => return false,
+        let graphics = reader.read_graphics();
+        if graphics.status() == AC_OFF {
+            return false;
         }
 
         self.reader = Some(reader);
@@ -63,14 +59,14 @@ impl<G: GraphicsLike, P: PhysicsLike, S: StaticLike> crate::Connector for Connec
 
     fn update(&mut self) -> Option<Vec<u8>> {
         let reader = self.reader.as_ref()?;
-        let graphics = reader.read_graphics()?;
+        let graphics = reader.read_graphics();
 
         if graphics.status() == AC_OFF {
             return None;
         }
 
-        let physics = reader.read_physics()?;
-        let statics = reader.read_statics()?;
+        let physics = reader.read_physics();
+        let statics = reader.read_statics();
 
         let statics_changed = self.prev_statics != Some(statics);
         if statics_changed {
